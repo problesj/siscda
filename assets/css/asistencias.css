@@ -1,0 +1,107 @@
+/* Estilos específicos para el módulo de asistencias */
+
+/* Coloreado de filas por familia */
+.fila-verde-claro {
+    background-color: #d1ecf1 !important;
+}
+
+.fila-azul-claro {
+    background-color: #d4edda !important;
+}
+
+.fila-gris-claro {
+    background-color: #f8f9fa !important;
+}
+
+.fila-blanca {
+    background-color: #ffffff !important;
+}
+
+/* Estilos más específicos para asegurar que se apliquen */
+table tbody tr.fila-verde-claro {
+    background-color: #d1ecf1 !important;
+}
+
+table tbody tr.fila-azul-claro {
+    background-color: #d4edda !important;
+}
+
+table tbody tr.fila-gris-claro {
+    background-color: #f8f9fa !important;
+}
+
+table tbody tr.fila-blanca {
+    background-color: #ffffff !important;
+}
+
+/* Hover effects */
+.fila-verde-claro:hover {
+    background-color: #bee5eb !important;
+}
+
+.fila-azul-claro:hover {
+    background-color: #c3e6cb !important;
+}
+
+.fila-gris-claro:hover {
+    background-color: #e9ecef !important;
+}
+
+.fila-blanca:hover {
+    background-color: #f8f9fa !important;
+}
+
+/* Asegurar que los estilos se apliquen incluso con otros estilos */
+.table tbody tr.fila-verde-claro,
+.table-responsive tbody tr.fila-verde-claro {
+    background-color: #d1ecf1 !important;
+}
+
+.table tbody tr.fila-azul-claro,
+.table-responsive tbody tr.fila-azul-claro {
+    background-color: #d4edda !important;
+}
+
+.table tbody tr.fila-gris-claro,
+.table-responsive tbody tr.fila-gris-claro {
+    background-color: #f8f9fa !important;
+}
+
+.table tbody tr.fila-blanca,
+.table-responsive tbody tr.fila-blanca {
+    background-color: #ffffff !important;
+}
+
+/* Estilos inline más específicos */
+tr.fila-verde-claro {
+    background-color: #d1ecf1 !important;
+}
+
+tr.fila-azul-claro {
+    background-color: #d4edda !important;
+}
+
+tr.fila-gris-claro {
+    background-color: #f8f9fa !important;
+}
+
+tr.fila-blanca {
+    background-color: #ffffff !important;
+}
+
+/* Forzar aplicación de estilos */
+*[class*="fila-verde-claro"] {
+    background-color: #d1ecf1 !important;
+}
+
+*[class*="fila-azul-claro"] {
+    background-color: #d4edda !important;
+}
+
+*[class*="fila-gris-claro"] {
+    background-color: #f8f9fa !important;
+}
+
+*[class*="fila-blanca"] {
+    background-color: #ffffff !important;
+}

@@ -1,0 +1,231 @@
+<?php
+require_once '../session_config.php';
+session_start();
+require_once '../config.php';
+
+// Verificar si el usuario está logueado
+if (!isset($_SESSION['usuario_id'])) {
+    // Si es una petición AJAX, devolver JSON con error de sesión
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false, 
+            'error' => 'session_expired',
+            'message' => 'La sesión ha caducado. Por favor, inicie sesión nuevamente.',
+            'redirect' => '../login.php'
+        ]);
+        exit();
+    } else {
+        // Si es una petición normal, redirigir al login
+        header('Location: ../login.php');
+        exit();
+    }
+}
+
+// Función para manejar la acción de agregar persona
+function agregarPersona($datos) {
+    try {
+        $pdo = conectarDB();
+        
+        // Obtener datos
+        $nombres = $datos['nombres'] ?? '';
+        $apellidos = $datos['apellidos'] ?? '';
+        $primeraVez = $datos['primeraVez'] ?? 0;
+        $familia = $datos['familia'] ?? '';
+        $observaciones = $datos['observaciones'] ?? '';
+        $culto_id = $datos['culto_id'] ?? null;
+        
+        // Validar datos requeridos
+        if (empty($nombres) || empty($apellidos)) {
+            return ['success' => false, 'message' => 'Nombres y apellidos son obligatorios'];
+        }
+        
+        // Insertar nueva persona
+        $stmt = $pdo->prepare("INSERT INTO personas (NOMBRES, APELLIDO_PATERNO, FAMILIA, OBSERVACIONES, FECHA_CREACION) VALUES (?, ?, ?, ?, NOW())");
+        $stmt->execute([$nombres, $apellidos, $familia, $observaciones]);
+        $persona_id = $pdo->lastInsertId();
+        
+        // Si hay culto_id, agregar asistencia
+        if ($culto_id && $culto_id !== 'null') {
+            $stmt = $pdo->prepare("INSERT INTO asistencias (PERSONA_ID, CULTO_ID, PRIMERA_VEZ, USUARIO_ID) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$persona_id, $culto_id, $primeraVez, $_SESSION['usuario_id'] ?? 1]);
+        }
+        
+        return ['success' => true, 'message' => 'Persona agregada correctamente'];
+        
+    } catch (PDOException $e) {
+        return ['success' => false, 'message' => 'Error de base de datos: ' . $e->getMessage()];
+    }
+}
+
+// Verificar si es una petición AJAX
+if (isset($_SERVER['HTTP_CONTENT_TYPE']) && $_SERVER['HTTP_CONTENT_TYPE'] === 'application/json') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $action = $input['action'] ?? '';
+    
+    if ($action == 'agregar_persona') {
+        header('Content-Type: application/json');
+        $resultado = agregarPersona($input);
+        echo json_encode($resultado);
+        exit();
+    }
+}
+
+// Procesar formularios tradicionales y FormData
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $action = $_POST['action'] ?? '';
+    
+    if ($action == 'agregar_persona') {
+        // Manejar petición FormData
+        header('Content-Type: application/json');
+        $resultado = agregarPersona($_POST);
+        echo json_encode($resultado);
+        exit();
+    }
+    
+    if ($action == 'verificar_sesion') {
+        // Verificar el estado de la sesión
+        header('Content-Type: application/json');
+        
+        if (isset($_SESSION['usuario_id'])) {
+            echo json_encode(['success' => true, 'message' => 'Sesión válida']);
+        } else {
+            echo json_encode([
+                'success' => false, 
+                'error' => 'session_expired',
+                'message' => 'La sesión ha caducado',
+                'redirect' => '../login.php'
+            ]);
+        }
+        exit();
+    }
+    
+    if ($action == 'consultar_asistencias') {
+        // Consultar el estado actual de las asistencias
+        header('Content-Type: application/json');
+        
+        try {
+            $pdo = conectarDB();
+            
+            $culto_id = $_POST['culto_id'] ?? null;
+            $personas_ids = $_POST['personas_ids'] ?? null;
+            
+            if (!$culto_id || !$personas_ids) {
+                echo json_encode(['success' => false, 'message' => 'Datos incompletos']);
+                exit();
+            }
+            
+            // Decodificar array de IDs
+            $ids = json_decode($personas_ids, true);
+            if (!is_array($ids)) {
+                echo json_encode(['success' => false, 'message' => 'Formato de IDs inválido']);
+                exit();
+            }
+            
+            // Crear placeholders para la consulta IN
+            $placeholders = str_repeat('?,', count($ids) - 1) . '?';
+            
+            // Consultar asistencias existentes
+            $stmt = $pdo->prepare("SELECT PERSONA_ID FROM asistencias WHERE CULTO_ID = ? AND PERSONA_ID IN ($placeholders)");
+            $params = array_merge([$culto_id], $ids);
+            $stmt->execute($params);
+            
+            $asistencias = [];
+            while ($row = $stmt->fetch()) {
+                $asistencias[$row['PERSONA_ID']] = true;
+            }
+            
+            // Crear respuesta con todos los IDs (true si asistió, false si no)
+            $resultado = [];
+            foreach ($ids as $id) {
+                $resultado[$id] = isset($asistencias[$id]);
+            }
+            
+            echo json_encode([
+                'success' => true, 
+                'asistencias' => $resultado,
+                'message' => 'Estados de asistencia consultados correctamente'
+            ]);
+            
+        } catch (PDOException $e) {
+            error_log("Error en consultar_asistencias: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit();
+    }
+    
+    if ($action == 'guardar_asistencia_individual') {
+        // Manejar guardado individual de asistencia
+        header('Content-Type: application/json');
+        
+        // Debug: log de la petición
+        error_log("Guardando asistencia individual: " . json_encode($_POST));
+        
+        try {
+            $pdo = conectarDB();
+            
+            $persona_id = $_POST['persona_id'] ?? null;
+            $culto_id = $_POST['culto_id'] ?? null;
+            $asistio = $_POST['asistio'] ?? '0';
+            
+            error_log("Datos procesados: persona_id=$persona_id, culto_id=$culto_id, asistio=$asistio");
+            
+            if (!$persona_id || !$culto_id) {
+                error_log("Datos incompletos: persona_id=$persona_id, culto_id=$culto_id");
+                echo json_encode(['success' => false, 'message' => 'Datos incompletos']);
+                exit();
+            }
+            
+            if ($asistio == '1') {
+                // Marcar asistencia
+                $stmt = $pdo->prepare("INSERT INTO asistencias (PERSONA_ID, CULTO_ID, PRIMERA_VEZ, USUARIO_ID) VALUES (?, ?, 0, ?) ON DUPLICATE KEY UPDATE USUARIO_ID = ?");
+                $stmt->execute([$persona_id, $culto_id, $_SESSION['usuario_id'] ?? 1, $_SESSION['usuario_id'] ?? 1]);
+                error_log("Asistencia marcada para persona $persona_id en culto $culto_id");
+            } else {
+                // Quitar asistencia
+                $stmt = $pdo->prepare("DELETE FROM asistencias WHERE PERSONA_ID = ? AND CULTO_ID = ?");
+                $stmt->execute([$persona_id, $culto_id]);
+                error_log("Asistencia removida para persona $persona_id en culto $culto_id");
+            }
+            
+            echo json_encode(['success' => true, 'message' => 'Asistencia actualizada']);
+            
+        } catch (PDOException $e) {
+            error_log("Error en guardar_asistencia_individual: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit();
+    }
+    
+    if ($action == 'guardar_asistencias') {
+        $culto_id = $_POST['culto_id'];
+        $asistencias = isset($_POST['asistencias']) ? $_POST['asistencias'] : [];
+        
+        try {
+            $pdo = conectarDB();
+            
+            // Primero eliminar todas las asistencias del culto
+            $stmt = $pdo->prepare("DELETE FROM asistencias WHERE CULTO_ID = ?");
+            $stmt->execute([$culto_id]);
+            
+            // Luego insertar las nuevas asistencias
+            if (!empty($asistencias)) {
+                $stmt = $pdo->prepare("INSERT INTO asistencias (PERSONA_ID, CULTO_ID, PRIMERA_VEZ, USUARIO_ID) VALUES (?, ?, 0, ?)");
+                foreach ($asistencias as $persona_id) {
+                    $stmt->execute([$persona_id, $culto_id, $_SESSION['usuario_id'] ?? 1]);
+                }
+            }
+            
+            $_SESSION['success'] = 'Asistencias guardadas exitosamente';
+        } catch (PDOException $e) {
+            $_SESSION['error'] = 'Error: ' . $e->getMessage();
+        }
+        
+        header('Location: asistencias.php?culto_id=' . $culto_id);
+        exit();
+    }
+}
+
+header('Location: asistencias.php');
+exit();
+?>
