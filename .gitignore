@@ -48,8 +48,8 @@ desktop.ini
 
 # Archivos de instalación (después de la instalación)
 install.php
-install_github.sh
-install_github.ps1
+# NOTA: install_github.sh e install_github.ps1 SÍ deben estar en el repositorio
+# para permitir la instalación desde GitHub
 
 # Archivos de configuración del servidor
 .htaccess
