@@ -1,141 +1,228 @@
-# Sistema de Control de Asistencias (CDA)
+# 🏛️ Sistema CDA - Control de Asistencias
 
-Sistema web para el registro y control de asistencias a cultos de una iglesia, desarrollado con PHP, MySQL y Bootstrap.
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue?style=for-the-badge&logo=github)](https://github.com/problesj/siscda)
+[![PHP](https://img.shields.io/badge/PHP-7.4+-purple?style=for-the-badge&logo=php)](https://php.net)
+[![MySQL](https://img.shields.io/badge/MySQL-5.7+-blue?style=for-the-badge&logo=mysql)](https://mysql.com)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-## Características
+## 📋 Descripción
 
-- **Gestión de Usuarios**: Administración de usuarios del sistema
-- **Gestión de Personas**: Registro de asistentes a los cultos
-- **Grupos Familiares**: Organización de personas por grupos familiares
-- **Gestión de Cultos**: Programación y administración de cultos
-- **Control de Asistencias**: Registro de asistencia por culto
-- **Reportes**: Generación de reportes de asistencia por fechas
-- **Dashboard**: Vista general con estadísticas del sistema
+El **Sistema de Control de Asistencias (CDA)** es una aplicación web desarrollada en PHP que permite gestionar asistencias a cultos y eventos de una iglesia u organización religiosa. El sistema proporciona una interfaz intuitiva para el registro de personas, programación de cultos, control de asistencias y generación de reportes detallados.
 
-## Requisitos del Sistema
+## 🌟 Características Principales
 
-- Apache 2.4+
-- PHP 7.4+
-- MySQL 5.7+ o MariaDB 10.2+
-- Navegador web moderno con JavaScript habilitado
+### 👥 Gestión de Personas
+- Registro completo de miembros con información personal
+- Organización por grupos familiares
+- Historial de asistencia individual
+- Gestión de contactos y observaciones
 
-## Instalación
+### 📅 Control de Cultos
+- Programación de eventos y cultos
+- Diferentes tipos de servicios
+- Control de fechas y horarios
+- Descripción detallada de cada evento
 
-### 1. Configuración de la Base de Datos
+### ✅ Sistema de Asistencias
+- Marcado rápido de asistencia
+- Registro automático de fecha y hora
+- Control de asistencias por culto
+- Historial completo de presencia
 
-La aplicación utiliza la base de datos `cda_base` con las siguientes tablas:
+### 📊 Reportes y Estadísticas
+- Reportes de asistencia por período
+- Estadísticas por persona y familia
+- Análisis de tendencias
+- Exportación de datos
 
-- `usuarios`: Usuarios del sistema
-- `personas`: Datos de asistentes
-- `grupos_familiares`: Grupos familiares
-- `cultos`: Programación de cultos
-- `asistencias`: Registro de asistencias
+### 🔒 Seguridad y Usuarios
+- Sistema de autenticación robusto
+- Gestión de roles y permisos
+- Protección CSRF y sanitización de datos
+- Logs de actividad del sistema
 
-### 2. Configuración del Sistema
+## 🚀 Instalación Rápida
 
-1. Copiar todos los archivos al directorio web del servidor
-2. Verificar que el directorio tenga permisos de escritura para el usuario web
-3. Configurar la conexión a la base de datos en `config.php`
-4. Crear un usuario administrador en la tabla `usuarios`
+### Desde GitHub (Recomendado)
 
-### 3. Crear Usuario Administrador
-
-```sql
-INSERT INTO usuarios (username, password, nombre_completo, email, activo) 
-VALUES ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador', 'admin@iglesia.com', 1);
+#### Linux/macOS
+```bash
+# Descargar e instalar automáticamente
+wget https://raw.githubusercontent.com/problesj/siscda/main/install_github.sh
+chmod +x install_github.sh
+./install_github.sh
 ```
 
-**Contraseña por defecto**: `password`
+#### Windows
+```powershell
+# Descargar e instalar automáticamente
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/problesj/siscda/main/install_github.ps1" -OutFile "install_github.ps1"
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\install_github.ps1
+```
 
-### 4. Acceso al Sistema
+### Instalación Manual
+```bash
+# Clonar repositorio
+git clone https://github.com/problesj/siscda.git
+cd siscda
 
-- URL: `http://tu-servidor/siscda/`
-- Usuario: `admin`
-- Contraseña: `password`
+# Configurar base de datos
+cp config.example.php config.php
+# Editar config.php con tus credenciales
 
-## Estructura del Proyecto
+# Ejecutar script SQL
+mysql -u usuario -p cda_base < install.sql
+```
+
+## 📋 Requisitos del Sistema
+
+- **PHP**: 7.4 o superior
+- **MySQL**: 5.7 o superior
+- **Servidor Web**: Apache 2.4+ o Nginx 1.18+
+- **Extensiones PHP**: pdo, pdo_mysql, session, mbstring, json
+- **Git**: Para clonar el repositorio
+
+## 🔧 Configuración
+
+### 1. Base de Datos
+El sistema crea automáticamente todas las tablas necesarias con la estructura correcta para tu base de datos existente.
+
+### 2. Archivos de Configuración
+- `config.php` - Configuración de base de datos y aplicación
+- `.htaccess` - Configuración de seguridad del servidor
+
+### 3. Permisos
+Los scripts de instalación configuran automáticamente los permisos correctos para tu servidor.
+
+## 📊 Estructura del Sistema
 
 ```
 siscda/
-├── assets/
-│   ├── css/
-│   │   └── style.css
-│   └── js/
-│       └── app.js
-├── includes/
-│   ├── header.php
-│   ├── footer.php
-│   └── sidebar.php
-├── modules/
-│   ├── usuarios.php
-│   ├── personas.php
-│   ├── grupos_familiares.php
-│   ├── cultos.php
-│   ├── asistencias.php
-│   └── reportes.php
-├── config.php
-├── index.php
-├── auth.php
-├── dashboard.php
-├── logout.php
-└── README.md
+├── assets/           # CSS, JS e imágenes
+├── includes/         # Archivos de inclusión
+├── modules/          # Módulos del sistema
+├── backups/          # Directorio de backups
+├── config.php        # Configuración principal
+├── index.php         # Página de inicio
+├── dashboard.php     # Panel principal
+└── README.md         # Esta documentación
 ```
 
-## Módulos del Sistema
+## 🔒 Seguridad
 
-### Dashboard
-- Estadísticas generales del sistema
-- Resumen de cultos recientes
-- Lista de personas registradas recientemente
+### Características Implementadas
+- ✅ Autenticación de usuarios con sesiones seguras
+- ✅ Protección CSRF con tokens únicos
+- ✅ Sanitización de datos para prevenir XSS
+- ✅ Headers de seguridad HTTP
+- ✅ Bloqueo de archivos sensibles
+- ✅ Preparación de consultas para prevenir SQL injection
 
-### Usuarios
-- Crear, editar y eliminar usuarios del sistema
-- Gestión de permisos y accesos
+### Después de la Instalación
+1. **Eliminar** archivos de instalación
+2. **Cambiar** contraseña por defecto (admin/admin123)
+3. **Configurar** HTTPS si es posible
+4. **Revisar** logs regularmente
+5. **Hacer backups** periódicos
 
-### Personas
-- Registro de asistentes a los cultos
-- Asociación con grupos familiares
-- Información de contacto
+## 📚 Documentación
 
-### Grupos Familiares
-- Organización de personas por afinidad familiar
-- Gestión de responsables de grupo
+### Guías de Instalación
+- **`README_GITHUB.md`** - Instalación desde GitHub
+- **`INSTALACION_RAPIDA.md`** - Instalación en 5 minutos
+- **`MANUAL_INSTALACION.md`** - Guía completa
 
-### Cultos
-- Programación de cultos con fecha, hora y tipo
-- Descripción y detalles del culto
+### Scripts de Utilidad
+- **`install_github.sh`** - Instalador automático Linux/macOS
+- **`install_github.ps1`** - Instalador automático Windows
+- **`backup_restore.php`** - Backup y restauración de BD
+- **`install.php`** - Instalador web
 
-### Asistencias
-- Registro de asistencia por culto
-- Interfaz intuitiva con checkboxes
-- Historial de asistencias
+## 🚨 Solución de Problemas
 
-### Reportes
-- Reportes de asistencia por fechas
-- Filtros por grupo familiar
-- Estadísticas de asistencia por persona
+### Problemas Comunes
+- **Error de conexión**: Verificar credenciales MySQL
+- **Error 500**: Revisar logs del servidor
+- **Página en blanco**: Verificar extensiones PHP
+- **Problemas de permisos**: Ejecutar script de instalación
 
-## Seguridad
+### Comandos de Verificación
+```bash
+# Verificar PHP
+php -v
+php -m | grep -E "(pdo|session|mbstring)"
 
-- Autenticación de usuarios
-- Validación de datos de entrada
-- Protección contra inyección SQL
-- Sesiones seguras
+# Verificar MySQL
+mysql --version
 
-## Personalización
+# Verificar permisos
+ls -la /var/www/html/siscda/
+```
 
-El sistema puede ser personalizado modificando:
+## 🔄 Actualizaciones
 
-- `assets/css/style.css`: Estilos visuales
-- `assets/js/app.js`: Funcionalidades JavaScript
-- `includes/header.php`: Encabezado común
-- `includes/sidebar.php`: Menú de navegación
+### Proceso de Actualización
+```bash
+# Hacer backup
+cd /var/www/html/siscda
+php backup_restore.php backup
 
-## Soporte
+# Actualizar código
+git pull origin main
 
-Para soporte técnico o consultas sobre el sistema, contactar al administrador del sistema.
+# Verificar cambios
+git log --oneline -5
+```
 
-## Licencia
+## 📞 Soporte
 
-Este software es de uso interno para la iglesia y no está destinado para distribución comercial.
-# siscda
+### Información del Proyecto
+- **Repositorio**: https://github.com/problesj/siscda
+- **Desarrollador**: Sistema CDA
+- **Versión**: 1.0.0
+- **Fecha**: Agosto 2025
+
+### Recursos de Ayuda
+- **Issues**: Reportar problemas en GitHub
+- **Documentación**: Guías completas incluidas
+- **Scripts**: Instalación automática disponible
+
+## 📄 Licencia
+
+Este proyecto está bajo la **Licencia MIT**. Ver el archivo `LICENSE` para más detalles.
+
+## 🤝 Contribuciones
+
+Las contribuciones son bienvenidas. Por favor:
+
+1. **Fork** el repositorio
+2. **Crea** una rama para tu feature
+3. **Commit** tus cambios
+4. **Push** a la rama
+5. **Abre** un Pull Request
+
+## ⭐ Agradecimientos
+
+- **Comunidad PHP** por el excelente lenguaje
+- **Bootstrap** por el framework CSS
+- **Font Awesome** por los iconos
+- **Contribuidores** del proyecto
+
+---
+
+## 🎯 Próximos Pasos
+
+1. **Clona** el repositorio desde GitHub
+2. **Ejecuta** el instalador automático
+3. **Configura** según tus necesidades
+4. **Personaliza** el sistema
+5. **¡Disfruta** de tu nuevo Sistema CDA!
+
+**¿Necesitas ayuda?** Revisa la documentación o abre un issue en GitHub.
+
+---
+
+**¡Gracias por usar el Sistema CDA!** 🎉
+
+*Un sistema completo para el control de asistencias de tu organización religiosa.*

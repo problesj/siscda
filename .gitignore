@@ -1,0 +1,95 @@
+# =====================================================
+# Archivo .gitignore para el Sistema CDA
+# =====================================================
+
+# Archivos de configuración (contienen información sensible)
+config.php
+.env
+.env.local
+.env.production
+
+# Archivos de sesión PHP
+sessions/
+*.sess
+
+# Archivos de log
+logs/
+*.log
+error_log
+access_log
+
+# Archivos de backup
+backups/
+*.sql
+*.sql.gz
+*.bak
+
+# Archivos temporales
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Archivos de caché
+cache/
+*.cache
+
+# Archivos de IDE/editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos de instalación (después de la instalación)
+install.php
+install_github.sh
+install_github.ps1
+
+# Archivos de configuración del servidor
+.htaccess
+nginx.conf
+
+# Archivos de base de datos
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos de usuario subidos
+uploads/
+user_files/
+
+# Archivos de configuración local
+config.local.php
+database.local.php
+
+# Archivos de dependencias (si se usan)
+vendor/
+node_modules/
+composer.lock
+package-lock.json
+
+# Archivos de build
+dist/
+build/
+*.min.js
+*.min.css
+
+# Archivos de test
+tests/
+test_*.php
+*_test.php
+
+# Archivos de documentación generados
+docs/build/
+docs/_build/
+
+# Archivos de respaldo
+*.backup
+*.old
+*.orig
