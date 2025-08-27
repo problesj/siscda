@@ -589,13 +589,25 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('infoRegistros').textContent = `Mostrando 1-${total} de ${total} registros`;
 });
 
-// Mostrar alertas de sesión
+// Mostrar alertas de sesión con SweetAlert2
 <?php if ($successMessage): ?>
-alert('<?php echo addslashes($successMessage); ?>');
+Swal.fire({
+    icon: 'success',
+    title: '¡Éxito!',
+    text: '<?php echo addslashes($successMessage); ?>',
+    confirmButtonText: 'Entendido',
+    confirmButtonColor: '#28a745'
+});
 <?php endif; ?>
 
 <?php if ($errorMessage): ?>
-alert('<?php echo addslashes($errorMessage); ?>');
+Swal.fire({
+    icon: 'error',
+    title: 'Error',
+    text: '<?php echo addslashes($errorMessage); ?>',
+    confirmButtonText: 'Entendido',
+    confirmButtonColor: '#dc3545'
+});
 <?php endif; ?>
 </script>
 
