@@ -1,3 +1,9 @@
+<?php
+require_once 'includes/auth_functions.php';
+
+// Si el usuario ya está autenticado, redirigir al dashboard
+verificarNoAutenticado();
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -68,18 +74,61 @@
                     </div>
                     
                     <?php
-                    require_once 'session_config.php';
-                    session_start();
+                    // Mostrar mensajes de sesión
+                    if (isset($_GET['error'])) {
+                        $error = $_GET['error'];
+                        $mensaje = '';
+                        $tipo = 'danger';
+                        
+                        switch ($error) {
+                            case 'sesion_expirada':
+                                $mensaje = 'Su sesión ha expirado. Por favor, inicie sesión nuevamente.';
+                                break;
+                            case 'acceso_denegado':
+                                $mensaje = 'Acceso denegado. Debe iniciar sesión para continuar.';
+                                break;
+                            default:
+                                $mensaje = 'Ha ocurrido un error. Por favor, intente nuevamente.';
+                        }
+                        
+                        echo '<div class="alert alert-' . $tipo . ' alert-dismissible fade show" role="alert">
+                                <i class="fas fa-exclamation-triangle"></i> ' . htmlspecialchars($mensaje) . '
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                              </div>';
+                    }
+                    
+                    if (isset($_GET['success'])) {
+                        $success = $_GET['success'];
+                        $mensaje = '';
+                        
+                        switch ($success) {
+                            case 'sesion_cerrada':
+                                $mensaje = 'Sesión cerrada exitosamente.';
+                                break;
+                            case 'password_cambiada':
+                                $mensaje = 'Contraseña cambiada exitosamente.';
+                                break;
+                            default:
+                                $mensaje = 'Operación completada exitosamente.';
+                        }
+                        
+                        echo '<div class="alert alert-success alert-dismissible fade show" role="alert">
+                                <i class="fas fa-check-circle"></i> ' . htmlspecialchars($mensaje) . '
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                              </div>';
+                    }
+                    
+                    // Mostrar mensajes de sesión (para compatibilidad con el sistema anterior)
                     if (isset($_SESSION['error'])) {
                         echo '<div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                <i class="fas fa-exclamation-triangle"></i> ' . $_SESSION['error'] . '
+                                <i class="fas fa-exclamation-triangle"></i> ' . htmlspecialchars($_SESSION['error']) . '
                                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                               </div>';
                         unset($_SESSION['error']);
                     }
                     if (isset($_SESSION['success'])) {
                         echo '<div class="alert alert-success alert-dismissible fade show" role="alert">
-                                <i class="fas fa-check-circle"></i> ' . $_SESSION['success'] . '
+                                <i class="fas fa-check-circle"></i> ' . htmlspecialchars($_SESSION['success']) . '
                                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                               </div>';
                         unset($_SESSION['success']);

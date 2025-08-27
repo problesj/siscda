@@ -2,27 +2,14 @@
 // Ruta relativa del proyecto
 $projectPath = dirname(__DIR__);
 
-require_once $projectPath . '/session_config.php';
-session_start();
-require_once $projectPath . '/config.php';
+// Incluir funciones de autenticación
+require_once $projectPath . '/includes/auth_functions.php';
 
-// Verificar autenticación
-if (!function_exists('verificarAutenticacion')) {
-    // Fallback si la función no existe
-    if (!isset($_SESSION['usuario_id'])) {
-        header('Location: ../index.php');
-        exit();
-    }
-} else {
-    verificarAutenticacion();
-}
+// Verificar autenticación automáticamente
+verificarAutenticacion();
 
 // Obtener la ruta base del proyecto
-$baseUrl = '';
-$scriptName = $_SERVER['SCRIPT_NAME'];
-if (strpos($scriptName, '/siscda') !== false) {
-    $baseUrl = '/siscda';
-}
+$baseUrl = getBaseUrl();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -44,6 +31,9 @@ if (strpos($scriptName, '/siscda') !== false) {
     <?php if (file_exists($projectPath . '/assets/js/sweetalert-utils.js')): ?>
     <script src="<?php echo $baseUrl; ?>/assets/js/sweetalert-utils.js"></script>
     <?php endif; ?>
+    
+    <!-- Gestor de sesiones del cliente -->
+    <script src="<?php echo $baseUrl; ?>/assets/js/session-manager.js"></script>
     
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">

@@ -5,15 +5,16 @@ if (headers_sent()) {
 }
 
 // Incluir archivos de configuración
-require_once 'session_config.php';
-session_start();
-require_once 'config.php';
+require_once 'includes/auth_functions.php';
+
+// Si el usuario ya está autenticado, redirigir al dashboard
+verificarNoAutenticado();
 
 // Fallback: definir limpiarDatos si no existe y registrar diagnostico
 if (!function_exists('limpiarDatos')) {
 	// Registrar diagnosticos para depuracion
-	error_log('auth.php: limpiarDatos() no existe tras incluir config.php');
-	error_log('auth.php: realpath(config.php)=' . @realpath(__DIR__ . '/config.php'));
+	error_log('auth.php: limpiarDatos() no existe tras incluir auth_functions.php');
+	error_log('auth.php: realpath(auth_functions.php)=' . @realpath(__DIR__ . '/includes/auth_functions.php'));
 	$included = get_included_files();
 	error_log('auth.php: included_files count=' . count($included));
 	// Definir version segura basica para no bloquear el login
@@ -34,7 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 	// Verificar que los datos POST estén presentes
 	if (!isset($_POST['username']) || !isset($_POST['password'])) {
 		$_SESSION['error'] = 'Usuario y contraseña son requeridos';
-		header('Location: index.php');
+		$baseUrl = getBaseUrl();
+		header('Location: ' . $baseUrl . '/index.php');
 		exit();
 	}
 	
@@ -44,7 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 	// Validar que los datos no estén vacíos
 	if (empty($username) || empty($password)) {
 		$_SESSION['error'] = 'Usuario y contraseña no pueden estar vacíos';
-		header('Location: index.php');
+		$baseUrl = getBaseUrl();
+		header('Location: ' . $baseUrl . '/index.php');
 		exit();
 	}
 	
@@ -56,11 +59,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 		$usuario = $stmt->fetch();
 		
 		if ($usuario && password_verify($password, $usuario['PASSWORD'])) {
+			// Iniciar sesión
 			$_SESSION['usuario_id'] = $usuario['USUARIO_ID'];
 			$_SESSION['username'] = $usuario['USERNAME'];
 			$_SESSION['nombre_completo'] = $usuario['NOMBRE_COMPLETO'];
+			$_SESSION['ultimo_acceso'] = time();
 			
-			// Actualizar último acceso
+			// Actualizar último acceso en la base de datos
 			try {
 				$stmt = $pdo->prepare("UPDATE usuarios SET ULTIMO_ACCESO = NOW() WHERE USUARIO_ID = ?");
 				$stmt->execute([$usuario['USUARIO_ID']]);
@@ -71,14 +76,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 			// Log de autenticación exitosa
 			error_log("Usuario autenticado exitosamente: $username");
 			
-			header('Location: dashboard.php');
+			// Redirigir al dashboard
+			$baseUrl = getBaseUrl();
+			header('Location: ' . $baseUrl . '/dashboard.php');
 			exit();
 		} else {
 			// Log de intento fallido
 			error_log("Intento de autenticación fallido para usuario: $username");
 			
 			$_SESSION['error'] = 'Usuario o contraseña incorrectos';
-			header('Location: index.php');
+			$baseUrl = getBaseUrl();
+			header('Location: ' . $baseUrl . '/index.php');
 			exit();
 		}
 	} catch (PDOException $e) {
@@ -96,18 +104,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 			$_SESSION['error'] = 'Error de conexión a la base de datos.';
 		}
 		
-		header('Location: index.php');
-		exit();
-	} catch (Exception $e) {
-		// Log de otros errores
-		error_log("Error general en auth.php: " . $e->getMessage());
-		$_SESSION['error'] = 'Error interno del sistema.';
-		header('Location: index.php');
+		$baseUrl = getBaseUrl();
+		header('Location: ' . $baseUrl . '/index.php');
 		exit();
 	}
-} else {
-	// Si no es POST, redirigir al inicio
-	header('Location: index.php');
-	exit();
 }
 ?>
