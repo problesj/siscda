@@ -1,95 +1,81 @@
-# =====================================================
-# Archivo .gitignore para el Sistema CDA
-# =====================================================
+# Sistema CDA - Archivos a ignorar en Git
 
-# Archivos de configuración (contienen información sensible)
+# Archivos de configuración sensibles
 config.php
 .env
-.env.local
-.env.production
+*.env
 
-# Archivos de sesión PHP
-sessions/
-*.sess
+# Archivos de base de datos
+*.sql
+*.sql.gz
+*.sql.bak
+backups/
+database_backup/
 
 # Archivos de log
-logs/
 *.log
+logs/
 error_log
 access_log
 
-# Archivos de backup
-backups/
-*.sql
-*.sql.gz
-*.bak
-
 # Archivos temporales
-tmp/
-temp/
 *.tmp
 *.temp
-
-# Archivos de caché
-cache/
 *.cache
-
-# Archivos de IDE/editores
-.vscode/
-.idea/
-*.swp
-*.swo
+*.bak
+*.backup
 *~
+
+# Archivos de sesión PHP
+sessions/
+sess_*
+
+# Archivos de upload
+uploads/
+assets/uploads/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
 
 # Archivos del sistema
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Archivos de instalación (después de la instalación)
-install.php
-# NOTA: install_github.sh e install_github.ps1 SÍ deben estar en el repositorio
-# para permitir la instalación desde GitHub
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Archivos de configuración del servidor
-.htaccess
-nginx.conf
-
-# Archivos de base de datos
-*.db
-*.sqlite
-*.sqlite3
-
-# Archivos de usuario subidos
-uploads/
-user_files/
-
-# Archivos de configuración local
-config.local.php
-database.local.php
-
-# Archivos de dependencias (si se usan)
+# Archivos de dependencias
 vendor/
 node_modules/
 composer.lock
 package-lock.json
 
-# Archivos de build
-dist/
-build/
-*.min.js
-*.min.css
-
-# Archivos de test
-tests/
-test_*.php
-*_test.php
-
-# Archivos de documentación generados
-docs/build/
-docs/_build/
-
-# Archivos de respaldo
-*.backup
+# Archivos de backup del sistema
 *.old
 *.orig
+*.rej
+
+# Archivos de instalación (después de usar)
+install.php
+
+# NOTA: Los siguientes archivos SÍ deben estar en el repositorio:
+# - install_github.sh
+# - install_github.ps1  
+# - install.sh
+# - install.ps1
+# - setup_database.sh
+# - install.sql
+# - config.example.php
+# - .htaccess.example
+# - backup_restore.php

@@ -129,3 +129,4 @@ echo "  Contraseña: $DB_PASS"
 echo "  Host: $DB_HOST:$DB_PORT"
 echo
 echo "Ahora puede probar la aplicación en el navegador"
+

@@ -64,6 +64,24 @@ cp .htaccess.example .htaccess
 mysql -u usuario -p cda_base < install.sql
 ```
 
+### Opción 3: Instalación con Scripts Generales
+
+#### Linux/macOS
+```bash
+# Descargar script de instalación
+wget https://raw.githubusercontent.com/problesj/siscda/main/install.sh
+chmod +x install.sh
+sudo ./install.sh
+```
+
+#### Windows
+```powershell
+# Descargar script de instalación
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/problesj/siscda/main/install.ps1" -OutFile "install.ps1"
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\install.ps1
+```
+
 ## 📋 Requisitos del Sistema
 
 ### Servidor Web
@@ -98,161 +116,169 @@ mysql -u usuario -p cda_base < install.sql
 El archivo `config.php` contiene la configuración principal:
 
 ```php
-// Base de datos
+<?php
+// Configuración de base de datos
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'cda_base');
 define('DB_USER', 'tu_usuario');
 define('DB_PASS', 'tu_contraseña');
+define('DB_CHARSET', 'utf8mb4');
 
-// Aplicación
-define('APP_NAME', 'Sistema de Control de Asistencias');
-define('APP_VERSION', '1.0.0');
+// Configuración de la aplicación
+define('APP_NAME', 'Sistema CDA');
+define('APP_VERSION', '1.1.0');
+define('TIMEZONE', 'America/Santiago');
+?>
 ```
 
-### 2. Configuración del Servidor
+### 2. Configuración del Servidor Web
 
-#### Apache
+#### Apache (.htaccess)
 ```apache
-<VirtualHost *:80>
-    ServerName siscda.tudominio.com
-    DocumentRoot /var/www/html/siscda
-    
-    <Directory /var/www/html/siscda>
-        AllowOverride All
-        Require all granted
-    </Directory>
-</VirtualHost>
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+
+# Seguridad
+<Files "config.php">
+    Order allow,deny
+    Deny from all
+</Files>
 ```
 
 #### Nginx
 ```nginx
-server {
-    listen 80;
-    server_name siscda.tudominio.com;
-    root /var/www/html/siscda;
-    index index.php index.html;
+location / {
+    try_files $uri $uri/ /index.php?$query_string;
+}
 
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.0-fpm.sock;
-        fastcgi_index index.php;
-        include fastcgi_params;
-    }
+location ~ \.php$ {
+    fastcgi_pass unix:/var/run/php/php8.0-fpm.sock;
+    fastcgi_index index.php;
+    include fastcgi_params;
 }
 ```
 
-## 📊 Estructura de la Base de Datos
+## 📊 Estructura del Proyecto
 
-### Tablas Principales
+```
+siscda/
+├── assets/           # Archivos estáticos (CSS, JS, imágenes)
+├── includes/         # Archivos de inclusión PHP
+├── modules/          # Módulos de la aplicación
+├── config.php       # Configuración principal
+├── index.php        # Punto de entrada
+├── auth.php         # Autenticación de usuarios
+├── dashboard.php    # Panel principal
+├── install.sql      # Estructura de la base de datos
+├── setup_database.sh # Script para configurar BD en servidor remoto
+├── install_github.sh # Instalador automático para Linux/macOS
+├── install_github.ps1 # Instalador automático para Windows
+├── install.sh       # Instalador general para Linux/macOS
+├── install.ps1      # Instalador general para Windows
+├── backup_restore.php # Script de backup y restauración
+├── .htaccess.example # Configuración de Apache de ejemplo
+└── config.example.php # Archivo de configuración de ejemplo
+```
 
-| Tabla | Descripción |
-|-------|-------------|
-| `usuarios` | Usuarios del sistema |
-| `personas` | Personas registradas |
-| `cultos` | Eventos/cultos |
-| `asistencias` | Registro de asistencias |
-| `grupos_familiares` | Grupos familiares |
+## 🎯 Funcionalidades Principales
 
-### Relaciones
-
-- **personas** → **asistencias** (1:N)
-- **cultos** → **asistencias** (1:N)
-- **personas** → **grupos_familiares** (N:1)
+- 👥 **Gestión de Personas** - Registro y administración de miembros
+- 📅 **Registro de Cultos** - Programación y registro de eventos
+- ✅ **Control de Asistencias** - Marcado y seguimiento de presencia
+- 📊 **Reportes Avanzados** - Estadísticas y análisis detallados
+- 👨‍👩‍👧‍👦 **Grupos Familiares** - Organización por familias
+- 👤 **Sistema de Usuarios** - Gestión de roles y permisos
 
 ## 🔒 Seguridad
 
-### Características Implementadas
+- Autenticación de usuarios robusta
+- Protección CSRF implementada
+- Sanitización de datos de entrada
+- Headers de seguridad configurados
+- Bloqueo de archivos sensibles
+- Logs de actividad del sistema
 
-- ✅ **Autenticación de usuarios** con sesiones seguras
-- ✅ **Protección CSRF** con tokens únicos
-- ✅ **Sanitización de datos** para prevenir XSS
-- ✅ **Headers de seguridad** HTTP
-- ✅ **Bloqueo de archivos sensibles** via .htaccess
-- ✅ **Preparación de consultas** para prevenir SQL injection
+## 🚨 Después de la Instalación
 
-### Después de la Instalación
+1. **Eliminar** archivos de instalación por seguridad
+2. **Cambiar** contraseña de administrador por defecto
+3. **Configurar** HTTPS (recomendado)
+4. **Hacer backup** de la base de datos
 
-1. **Eliminar** archivos de instalación
-2. **Cambiar** contraseña por defecto
-3. **Configurar** HTTPS
-4. **Revisar** logs regularmente
-5. **Hacer backups** periódicos
+## 📞 Solución de Problemas
 
-## 📚 Documentación
+### Error de Conexión a Base de Datos
+- Verificar credenciales en `config.php`
+- Confirmar que MySQL esté ejecutándose
+- Verificar permisos del usuario de la base de datos
 
-### Archivos de Documentación
+### Error 404 al descargar scripts
+Si obtiene un error 404 al intentar descargar los scripts de instalación:
 
-- **`README.md`** - Documentación general del proyecto
-- **`MANUAL_INSTALACION.md`** - Guía completa de instalación
-- **`INSTALACION_RAPIDA.md`** - Instalación en 5 minutos
-- **`README_GITHUB.md`** - Esta guía específica para GitHub
+1. **Verificar que el repositorio esté actualizado:**
+   ```bash
+   git pull origin main
+   ```
 
-### Scripts de Utilidad
+2. **Usar la instalación manual:**
+   ```bash
+   git clone https://github.com/problesj/siscda.git
+   cd siscda
+   # Seguir los pasos de instalación manual
+   ```
 
-- **`install_github.sh`** - Instalador automático para Linux/macOS
-- **`install_github.ps1`** - Instalador automático para Windows
-- **`backup_restore.php`** - Script de backup y restauración
-- **`install.php`** - Instalador web (después de clonar)
+3. **Verificar la URL del repositorio:**
+   - Repositorio: https://github.com/problesj/siscda
+   - Rama principal: main
 
-## 🚨 Solución de Problemas
+### Error 500
+- Revisar logs de Apache/Nginx
+- Verificar permisos de archivos
+- Habilitar visualización de errores PHP
 
-### Problemas Comunes
-
-#### Error de Conexión a Base de Datos
+### Problemas de Permisos
 ```bash
-# Verificar que MySQL esté ejecutándose
-sudo systemctl status mysql
-
-# Verificar credenciales
-mysql -u usuario -p -h localhost
-```
-
-#### Error 500 (Internal Server Error)
-```bash
-# Revisar logs de Apache
-sudo tail -f /var/log/apache2/error.log
-
-# Revisar logs de Nginx
-sudo tail -f /var/log/nginx/error.log
-```
-
-#### Problemas de Permisos
-```bash
-# Establecer propietario correcto
+# En Linux/macOS
 sudo chown -R www-data:www-data /var/www/html/siscda
-
-# Establecer permisos correctos
-sudo find /var/www/html/siscda -type f -exec chmod 644 {} \;
-sudo find /var/www/html/siscda -type d -exec chmod 755 {} \;
+sudo chmod -R 755 /var/www/html/siscda
+sudo chmod -R 775 /var/www/html/siscda/assets/uploads
+sudo chmod -R 775 /var/www/html/siscda/logs
 ```
 
-### Comandos de Verificación
+### Problemas de Base de Datos
+1. Verificar que MySQL/MariaDB esté ejecutándose
+2. Verificar las credenciales en `config.php`
+3. Verificar que la base de datos exista y tenga la estructura correcta
 
+## 🛠️ Mantenimiento
+
+### Respaldos
 ```bash
-# Verificar PHP
-php -v
-php -m | grep -E "(pdo|session|mbstring)"
+# Crear backup de la base de datos
+php backup_restore.php backup
 
-# Verificar MySQL
-mysql --version
+# Restaurar desde backup
+php backup_restore.php restore backups/backup_cda_base_2025-08-26_10-30-00.sql.gz
 
-# Verificar Git
-git --version
+# Listar backups disponibles
+php backup_restore.php list
 
-# Verificar permisos
-ls -la /var/www/html/siscda/
+# Limpiar backups antiguos
+php backup_restore.php clean
 ```
 
-## 🔄 Actualizaciones
-
-### Proceso de Actualización
-
+### Configuración en Servidor Remoto
 ```bash
-# Hacer backup
-cd /var/www/html/siscda
+# Usar el script de configuración automática
+chmod +x setup_database.sh
+sudo ./setup_database.sh
+```
+
+### Actualizaciones
+```bash
+# Hacer backup antes de actualizar
 php backup_restore.php backup
 
 # Actualizar código
@@ -262,61 +288,53 @@ git pull origin main
 git log --oneline -5
 ```
 
-### Antes de Actualizar
+## 📚 Documentación Completa
 
-1. **Hacer backup** de la base de datos
-2. **Hacer backup** de archivos personalizados
-3. **Documentar** cambios personalizados
-4. **Probar** en entorno de desarrollo
-
-## 📞 Soporte
-
-### Información del Proyecto
-
-- **Repositorio**: https://github.com/problesj/siscda
-- **Desarrollador**: Sistema CDA
-- **Versión**: 1.0.0
-- **Fecha**: Agosto 2025
-
-### Recursos Adicionales
-
-- **Issues**: Reportar problemas en GitHub
-- **Wiki**: Documentación adicional (si está disponible)
-- **Discussions**: Foro de discusión (si está habilitado)
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
+Para más detalles, consulta:
+- `README.md` - Documentación principal del proyecto
+- `MANUAL_INSTALACION.md` - Guía completa de instalación y configuración
 
 ## 🤝 Contribuciones
 
 Las contribuciones son bienvenidas. Por favor:
 
-1. **Fork** el repositorio
-2. **Crea** una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. **Commit** tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. **Push** a la rama (`git push origin feature/AmazingFeature`)
-5. **Abre** un Pull Request
+1. Fork el proyecto
+2. Cree una rama para su feature (`git checkout -b feature/AmazingFeature`)
+3. Commit sus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abra un Pull Request
 
-## ⭐ Agradecimientos
+## 📄 Licencia
 
-- **Comunidad PHP** por el excelente lenguaje
-- **Bootstrap** por el framework CSS
-- **Font Awesome** por los iconos
-- **Contribuidores** del proyecto
+Este proyecto está bajo la Licencia MIT. Consulte el archivo `LICENSE` para más detalles.
+
+## 🔄 Changelog
+
+### v1.1.0
+- Script `setup_database.sh` para configuración automática de BD
+- Mejoras en manejo de errores y autenticación
+- Limpieza del repositorio y consolidación de documentación
+
+### v1.0.0
+- Sistema de control de asistencias completo
+- Módulos de usuarios, personas, cultos y reportes
+- Scripts de instalación automática
+- Soporte para Linux, macOS y Windows
+
+## 📞 Soporte
+
+### Información del Proyecto
+- **Repositorio**: https://github.com/problesj/siscda
+- **Versión**: 1.1.0
+- **Fecha**: Agosto 2025
+
+### Recursos de Ayuda
+- **Issues**: Reportar problemas en GitHub
+- **Documentación**: Guías completas incluidas
+- **Scripts**: Instalación automática disponible
 
 ---
 
-## 🎯 Próximos Pasos
+**¡Listo! Tu Sistema CDA está funcionando.** 🎉
 
-1. **Clona** el repositorio
-2. **Ejecuta** el instalador automático
-3. **Configura** según tus necesidades
-4. **Personaliza** el sistema
-5. **¡Disfruta** de tu nuevo Sistema CDA!
-
-**¿Necesitas ayuda?** Revisa la documentación o abre un issue en GitHub.
-
----
-
-**¡Gracias por usar el Sistema CDA!** 🎉
+**Recuerda cambiar la contraseña por defecto después de la instalación.**

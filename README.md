@@ -43,7 +43,7 @@ El **Sistema de Control de Asistencias (CDA)** es una aplicación web desarrolla
 
 ## 🚀 Instalación Rápida
 
-### Desde GitHub (Recomendado)
+### Opción 1: Instalación Automática desde GitHub (Recomendada)
 
 #### Linux/macOS
 ```bash
@@ -61,7 +61,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\install_github.ps1
 ```
 
-### Instalación Manual
+### Opción 2: Instalación Manual
 ```bash
 # Clonar repositorio
 git clone https://github.com/problesj/siscda.git
@@ -75,10 +75,28 @@ cp config.example.php config.php
 mysql -u usuario -p cda_base < install.sql
 ```
 
+### Opción 3: Instalación con Scripts Generales
+
+#### Linux/macOS
+```bash
+# Descargar script de instalación
+wget https://raw.githubusercontent.com/problesj/siscda/main/install.sh
+chmod +x install.sh
+sudo ./install.sh
+```
+
+#### Windows
+```powershell
+# Descargar script de instalación
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/problesj/siscda/main/install.ps1" -OutFile "install.ps1"
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\install.ps1
+```
+
 ## 📋 Requisitos del Sistema
 
 - **PHP**: 7.4 o superior
-- **MySQL**: 5.7 o superior
+- **MySQL**: 5.7 o superior (MariaDB 10.2+)
 - **Servidor Web**: Apache 2.4+ o Nginx 1.18+
 - **Extensiones PHP**: pdo, pdo_mysql, session, mbstring, json
 - **Git**: Para clonar el repositorio
@@ -99,130 +117,125 @@ Los scripts de instalación configuran automáticamente los permisos correctos p
 
 ```
 siscda/
-├── assets/           # CSS, JS e imágenes
-├── includes/         # Archivos de inclusión
-├── modules/          # Módulos del sistema
-├── backups/          # Directorio de backups
-├── config.php        # Configuración principal
-├── index.php         # Página de inicio
-├── dashboard.php     # Panel principal
-└── README.md         # Esta documentación
+├── assets/           # Archivos estáticos (CSS, JS, imágenes)
+├── includes/         # Archivos de inclusión PHP
+├── modules/          # Módulos de la aplicación
+├── config.php       # Configuración principal
+├── index.php        # Punto de entrada
+├── auth.php         # Autenticación de usuarios
+├── dashboard.php    # Panel principal
+├── install.sql      # Estructura de la base de datos
+├── setup_database.sh # Script para configurar BD en servidor remoto
+├── install_github.sh # Instalador automático para Linux/macOS
+├── install_github.ps1 # Instalador automático para Windows
+├── install.sh       # Instalador general para Linux/macOS
+├── install.ps1      # Instalador general para Windows
+├── backup_restore.php # Script de backup y restauración
+├── .htaccess.example # Configuración de Apache de ejemplo
+└── config.example.php # Archivo de configuración de ejemplo
 ```
+
+## 🎯 Funcionalidades Principales
+
+- 👥 **Gestión de Personas** - Registro y administración de miembros
+- 📅 **Registro de Cultos** - Programación y registro de eventos
+- ✅ **Control de Asistencias** - Marcado y seguimiento de presencia
+- 📊 **Reportes Avanzados** - Estadísticas y análisis detallados
+- 👨‍👩‍👧‍👦 **Grupos Familiares** - Organización por familias
+- 👤 **Sistema de Usuarios** - Gestión de roles y permisos
 
 ## 🔒 Seguridad
 
-### Características Implementadas
-- ✅ Autenticación de usuarios con sesiones seguras
-- ✅ Protección CSRF con tokens únicos
-- ✅ Sanitización de datos para prevenir XSS
-- ✅ Headers de seguridad HTTP
-- ✅ Bloqueo de archivos sensibles
-- ✅ Preparación de consultas para prevenir SQL injection
+- Autenticación de usuarios robusta
+- Protección CSRF implementada
+- Sanitización de datos de entrada
+- Headers de seguridad configurados
+- Bloqueo de archivos sensibles
+- Logs de actividad del sistema
 
-### Después de la Instalación
-1. **Eliminar** archivos de instalación
-2. **Cambiar** contraseña por defecto (admin/admin123)
-3. **Configurar** HTTPS si es posible
-4. **Revisar** logs regularmente
-5. **Hacer backups** periódicos
+## 🚨 Después de la Instalación
 
-## 📚 Documentación
+1. **Eliminar** archivos de instalación por seguridad
+2. **Cambiar** contraseña de administrador por defecto
+3. **Configurar** HTTPS (recomendado)
+4. **Hacer backup** de la base de datos
 
-### Guías de Instalación
-- **`README_GITHUB.md`** - Instalación desde GitHub
-- **`INSTALACION_RAPIDA.md`** - Instalación en 5 minutos
-- **`MANUAL_INSTALACION.md`** - Guía completa
+## 📞 Solución de Problemas
 
-### Scripts de Utilidad
-- **`install_github.sh`** - Instalador automático Linux/macOS
-- **`install_github.ps1`** - Instalador automático Windows
-- **`backup_restore.php`** - Backup y restauración de BD
-- **`install.php`** - Instalador web
+### Error de Conexión a Base de Datos
+- Verificar credenciales en `config.php`
+- Confirmar que MySQL esté ejecutándose
+- Verificar permisos del usuario de la base de datos
 
-## 🚨 Solución de Problemas
+### Error 500
+- Revisar logs de Apache/Nginx
+- Verificar permisos de archivos
+- Habilitar visualización de errores PHP
 
-### Problemas Comunes
-- **Error de conexión**: Verificar credenciales MySQL
-- **Error 500**: Revisar logs del servidor
-- **Página en blanco**: Verificar extensiones PHP
-- **Problemas de permisos**: Ejecutar script de instalación
-
-### Comandos de Verificación
+### Problemas de Permisos
 ```bash
-# Verificar PHP
-php -v
-php -m | grep -E "(pdo|session|mbstring)"
-
-# Verificar MySQL
-mysql --version
-
-# Verificar permisos
-ls -la /var/www/html/siscda/
+# En sistemas Linux/Unix
+sudo chown -R www-data:www-data /var/www/html/siscda
+sudo chmod -R 755 /var/www/html/siscda
+sudo chmod -R 775 /var/www/html/siscda/assets/uploads
 ```
 
-## 🔄 Actualizaciones
+## 🛠️ Mantenimiento
 
-### Proceso de Actualización
+### Respaldos
 ```bash
-# Hacer backup
-cd /var/www/html/siscda
+# Crear backup de la base de datos
 php backup_restore.php backup
 
-# Actualizar código
-git pull origin main
+# Restaurar desde backup
+php backup_restore.php restore backups/backup_cda_base_2025-08-26_10-30-00.sql.gz
 
-# Verificar cambios
-git log --oneline -5
+# Listar backups disponibles
+php backup_restore.php list
 ```
 
-## 📞 Soporte
+### Configuración de Base de Datos en Servidor Remoto
+```bash
+# Usar el script de configuración automática
+chmod +x setup_database.sh
+sudo ./setup_database.sh
+```
 
-### Información del Proyecto
-- **Repositorio**: https://github.com/problesj/siscda
-- **Desarrollador**: Sistema CDA
-- **Versión**: 1.0.0
-- **Fecha**: Agosto 2025
+## 📚 Documentación Completa
 
-### Recursos de Ayuda
-- **Issues**: Reportar problemas en GitHub
-- **Documentación**: Guías completas incluidas
-- **Scripts**: Instalación automática disponible
-
-## 📄 Licencia
-
-Este proyecto está bajo la **Licencia MIT**. Ver el archivo `LICENSE` para más detalles.
+Para más detalles, consulta:
+- `MANUAL_INSTALACION.md` - Guía completa de instalación y configuración
+- `README_GITHUB.md` - Instrucciones específicas para instalación desde GitHub
 
 ## 🤝 Contribuciones
 
 Las contribuciones son bienvenidas. Por favor:
 
-1. **Fork** el repositorio
-2. **Crea** una rama para tu feature
-3. **Commit** tus cambios
-4. **Push** a la rama
-5. **Abre** un Pull Request
+1. Fork el proyecto
+2. Cree una rama para su feature (`git checkout -b feature/AmazingFeature`)
+3. Commit sus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abra un Pull Request
 
-## ⭐ Agradecimientos
+## 📄 Licencia
 
-- **Comunidad PHP** por el excelente lenguaje
-- **Bootstrap** por el framework CSS
-- **Font Awesome** por los iconos
-- **Contribuidores** del proyecto
+Este proyecto está bajo la Licencia MIT. Consulte el archivo `LICENSE` para más detalles.
 
----
+## 🔄 Changelog
 
-## 🎯 Próximos Pasos
+### v1.1.0
+- Script `setup_database.sh` para configuración automática de BD
+- Mejoras en manejo de errores y autenticación
+- Limpieza del repositorio y consolidación de documentación
 
-1. **Clona** el repositorio desde GitHub
-2. **Ejecuta** el instalador automático
-3. **Configura** según tus necesidades
-4. **Personaliza** el sistema
-5. **¡Disfruta** de tu nuevo Sistema CDA!
-
-**¿Necesitas ayuda?** Revisa la documentación o abre un issue en GitHub.
+### v1.0.0
+- Sistema de control de asistencias completo
+- Módulos de usuarios, personas, cultos y reportes
+- Scripts de instalación automática
+- Soporte para Linux, macOS y Windows
 
 ---
 
-**¡Gracias por usar el Sistema CDA!** 🎉
+**¡Listo! Tu Sistema CDA está funcionando.** 🎉
 
-*Un sistema completo para el control de asistencias de tu organización religiosa.*
+**Recuerda cambiar la contraseña por defecto después de la instalación.**

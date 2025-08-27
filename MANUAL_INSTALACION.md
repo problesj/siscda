@@ -2,7 +2,7 @@
 
 ## 🎯 Descripción General
 
-El **Sistema de Control de Asistencias (CDA)** es una aplicación web desarrollada en PHP que permite gestionar asistencias a cultos y eventos de una iglesia o organización religiosa.
+El **Sistema de Control de Asistencias (CDA)** es una aplicación web desarrollada en PHP que permite gestionar asistencias a cultos y eventos de una iglesia u organización religiosa.
 
 ## 📋 Requisitos del Sistema
 
@@ -35,13 +35,43 @@ El **Sistema de Control de Asistencias (CDA)** es una aplicación web desarrolla
 
 ## 🚀 Instalación Automática (Recomendada)
 
-### Paso 1: Descargar y Subir Archivos
+### Opción 1: Instalación desde GitHub
 
-1. **Descarga** todos los archivos del sistema
-2. **Sube** los archivos a tu servidor web en el directorio deseado (ej: `/var/www/html/siscda/`)
-3. **Asegúrate** de que el directorio sea accesible desde el navegador
+#### Linux/macOS
+```bash
+# Descargar e instalar automáticamente
+wget https://raw.githubusercontent.com/problesj/siscda/main/install_github.sh
+chmod +x install_github.sh
+./install_github.sh
+```
 
-### Paso 2: Ejecutar el Instalador
+#### Windows
+```powershell
+# Descargar e instalar automáticamente
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/problesj/siscda/main/install_github.ps1" -OutFile "install_github.ps1"
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\install_github.ps1
+```
+
+### Opción 2: Instalación con Scripts Generales
+
+#### Linux/macOS
+```bash
+# Descargar script de instalación
+wget https://raw.githubusercontent.com/problesj/siscda/main/install.sh
+chmod +x install.sh
+sudo ./install.sh
+```
+
+#### Windows
+```powershell
+# Descargar script de instalación
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/problesj/siscda/main/install.ps1" -OutFile "install.ps1"
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\install.ps1
+```
+
+### Opción 3: Instalador Web
 
 1. **Abre tu navegador** y ve a: `http://tu-servidor/siscda/install.php`
 2. **Sigue los pasos** del instalador automático:
@@ -63,21 +93,32 @@ El **Sistema de Control de Asistencias (CDA)** es una aplicación web desarrolla
 #### Paso 5: Archivo de Configuración
 - Se generará automáticamente el archivo `config.php`
 
-### Paso 3: Acceder al Sistema
+### Opción 4: Configuración Manual de Base de Datos
 
-- **URL**: `http://tu-servidor/siscda/`
-- **Usuario**: `admin`
-- **Contraseña**: `admin123`
+Si prefieres configurar la base de datos manualmente:
+
+```bash
+# Conectar a MySQL como root
+mysql -u root -p
+
+# En MySQL, ejecutar:
+CREATE DATABASE cda_base CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'cda_user'@'localhost' IDENTIFIED BY 'tu_contraseña';
+GRANT ALL PRIVILEGES ON cda_base.* TO 'cda_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+```
 
 ## 🔧 Instalación Manual
 
-### Paso 1: Crear Base de Datos
+### Paso 1: Clonar Repositorio
 
-```sql
-CREATE DATABASE cda_base CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```bash
+git clone https://github.com/problesj/siscda.git
+cd siscda
 ```
 
-### Paso 2: Ejecutar Script SQL
+### Paso 2: Configurar Base de Datos
 
 1. **Abre** tu cliente MySQL (phpMyAdmin, MySQL Workbench, etc.)
 2. **Selecciona** la base de datos `cda_base`
@@ -100,187 +141,151 @@ chmod 755 modules/
 chmod 755 assets/
 ```
 
-## ⚙️ Configuración del Servidor
+## 🚨 Después de la Instalación
 
-### Apache
-
-#### Habilitar Módulos
+### 1. Eliminar Archivos de Instalación
 ```bash
-sudo a2enmod rewrite
-sudo a2enmod headers
-sudo systemctl restart apache2
+# Por seguridad, eliminar archivos de instalación
+rm install.php
 ```
 
-#### Configuración Virtual Host (Opcional)
-```apache
-<VirtualHost *:80>
-    ServerName siscda.tudominio.com
-    DocumentRoot /var/www/html/siscda
-    
-    <Directory /var/www/html/siscda>
-        AllowOverride All
-        Require all granted
-    </Directory>
-    
-    ErrorLog ${APACHE_LOG_DIR}/siscda_error.log
-    CustomLog ${APACHE_LOG_DIR}/siscda_access.log combined
-</VirtualHost>
+### 2. Cambiar Contraseña por Defecto
+- **Usuario**: `admin`
+- **Contraseña**: `admin123`
+- Cambiar inmediatamente después del primer acceso
+
+### 3. Configurar HTTPS (Recomendado)
+- Configurar certificado SSL
+- Redirigir HTTP a HTTPS
+
+### 4. Hacer Backup Inicial
+```bash
+# Crear backup de la base de datos
+php backup_restore.php backup
 ```
 
-### Nginx
+## 📊 Estructura del Sistema
 
-#### Configuración del Sitio
-```nginx
-server {
-    listen 80;
-    server_name siscda.tudominio.com;
-    root /var/www/html/siscda;
-    index index.php index.html;
-
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.0-fpm.sock;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
-        include fastcgi_params;
-    }
-
-    location ~ /\.ht {
-        deny all;
-    }
-}
+```
+siscda/
+├── assets/           # Archivos estáticos (CSS, JS, imágenes)
+├── includes/         # Archivos de inclusión PHP
+├── modules/          # Módulos de la aplicación
+├── config.php       # Configuración principal
+├── index.php        # Punto de entrada
+├── auth.php         # Autenticación de usuarios
+├── dashboard.php    # Panel principal
+├── install.sql      # Estructura de la base de datos
+├── setup_database.sh # Script para configurar BD en servidor remoto
+├── install_github.sh # Instalador automático para Linux/macOS
+├── install_github.ps1 # Instalador automático para Windows
+├── install.sh       # Instalador general para Linux/macOS
+├── install.ps1      # Instalador general para Windows
+├── backup_restore.php # Script de backup y restauración
+├── .htaccess.example # Configuración de Apache de ejemplo
+└── config.example.php # Archivo de configuración de ejemplo
 ```
 
 ## 🔒 Configuración de Seguridad
 
-### Después de la Instalación
+### 1. Archivo .htaccess
+El archivo `.htaccess` incluye:
+- Bloqueo de archivos sensibles
+- Headers de seguridad
+- Compresión y caché
+- Redirección de errores
 
-1. **Elimina** el archivo `install.php`
-2. **Cambia** la contraseña del usuario administrador
-3. **Configura** HTTPS si es posible
-4. **Revisa** los logs del servidor regularmente
+### 2. Configuración de Sesiones
+- Cookies seguras (HttpOnly, Secure)
+- Timeout de sesión configurable
+- Regeneración de ID de sesión
 
-### Archivos de Configuración
+### 3. Sanitización de Datos
+- Función `limpiarDatos()` para prevenir XSS
+- Preparación de consultas SQL
+- Validación de entrada
 
-- **config.php**: Contiene credenciales de base de datos
-- **.htaccess**: Configuración de seguridad del servidor
-- **session_config.php**: Configuración de sesiones
+## 🛠️ Mantenimiento
 
-## 📊 Estructura de la Base de Datos
+### Respaldos Regulares
+```bash
+# Crear backup diario
+php backup_restore.php backup
 
-### Tablas Principales
+# Restaurar desde backup
+php backup_restore.php restore backups/backup_cda_base_2025-08-26_10-30-00.sql.gz
 
-| Tabla | Descripción |
-|-------|-------------|
-| `usuarios` | Usuarios del sistema |
-| `personas` | Personas registradas |
-| `cultos` | Eventos/cultos |
-| `asistencias` | Registro de asistencias |
-| `grupos_familiares` | Grupos familiares (opcional) |
+# Listar backups disponibles
+php backup_restore.php list
 
-### Relaciones
+# Limpiar backups antiguos
+php backup_restore.php clean
+```
 
-- **personas** → **asistencias** (1:N)
-- **cultos** → **asistencias** (1:N)
-- **personas** → **grupos_familiares** (N:1)
+### Configuración en Servidor Remoto
+```bash
+# Usar el script de configuración automática
+chmod +x setup_database.sh
+sudo ./setup_database.sh
+```
 
-## 🚨 Solución de Problemas
+## 📞 Solución de Problemas
 
 ### Error de Conexión a Base de Datos
+- Verificar credenciales en `config.php`
+- Confirmar que MySQL esté ejecutándose
+- Verificar permisos del usuario de la base de datos
 
-1. **Verifica** que MySQL esté ejecutándose
-2. **Confirma** las credenciales en `config.php`
-3. **Asegúrate** de que el usuario tenga permisos
-
-### Error 500 (Internal Server Error)
-
-1. **Revisa** los logs de error de Apache/Nginx
-2. **Verifica** que PHP esté configurado correctamente
-3. **Confirma** que las extensiones requeridas estén habilitadas
-
-### Página en Blanco
-
-1. **Habilita** la visualización de errores en PHP
-2. **Verifica** los permisos de archivos
-3. **Revisa** la configuración de PHP
+### Error 500
+- Revisar logs de Apache/Nginx
+- Verificar permisos de archivos
+- Habilitar visualización de errores PHP
 
 ### Problemas de Permisos
-
 ```bash
-# Establecer propietario correcto
+# En sistemas Linux/Unix
 sudo chown -R www-data:www-data /var/www/html/siscda
-
-# Establecer permisos correctos
-sudo find /var/www/html/siscda -type f -exec chmod 644 {} \;
-sudo find /var/www/html/siscda -type d -exec chmod 755 {} \;
+sudo chmod -R 755 /var/www/html/siscda
+sudo chmod -R 775 /var/www/html/siscda/assets/uploads
 ```
+
+### Error de Función `limpiarDatos()`
+- Verificar que `config.php` esté incluido correctamente
+- El archivo `auth.php` incluye un fallback seguro
 
 ## 🔄 Actualizaciones
 
-### Antes de Actualizar
-
-1. **Haz backup** de la base de datos
-2. **Haz backup** de todos los archivos
-3. **Documenta** cualquier personalización
-
 ### Proceso de Actualización
+```bash
+# Hacer backup antes de actualizar
+php backup_restore.php backup
 
-1. **Descarga** la nueva versión
-2. **Reemplaza** los archivos (excepto `config.php`)
-3. **Ejecuta** cualquier script de migración necesario
-4. **Verifica** que todo funcione correctamente
+# Actualizar código
+git pull origin main
+
+# Verificar cambios
+git log --oneline -5
+```
+
+## 📚 Documentación Adicional
+
+- **`README.md`** - Documentación principal del proyecto
+- **`README_GITHUB.md`** - Instrucciones específicas para GitHub
 
 ## 📞 Soporte
 
-### Información de Contacto
-
-- **Desarrollador**: Sistema CDA
-- **Versión**: 1.0.0
+### Información del Proyecto
+- **Repositorio**: https://github.com/problesj/siscda
+- **Versión**: 1.1.0
 - **Fecha**: Agosto 2025
 
-### Recursos Adicionales
-
-- **Documentación**: README.md
-- **Logs del Sistema**: Directorio `logs/`
-- **Backup de Base de Datos**: Recomendado antes de cambios importantes
-
-## ✅ Verificación de Instalación
-
-### Checklist de Verificación
-
-- [ ] El instalador se ejecuta sin errores
-- [ ] Se puede acceder al sistema con admin/admin123
-- [ ] Se pueden crear nuevas personas
-- [ ] Se pueden registrar cultos
-- [ ] Se pueden marcar asistencias
-- [ ] Los reportes funcionan correctamente
-- [ ] No hay errores en los logs del servidor
-
-### Comandos de Verificación
-
-```bash
-# Verificar que PHP esté funcionando
-php -v
-
-# Verificar extensiones PHP
-php -m | grep -E "(pdo|session|mbstring)"
-
-# Verificar permisos de archivos
-ls -la /var/www/html/siscda/
-
-# Verificar logs de error
-tail -f /var/log/apache2/error.log
-```
+### Recursos de Ayuda
+- **Issues**: Reportar problemas en GitHub
+- **Documentación**: Guías completas incluidas
+- **Scripts**: Instalación automática disponible
 
 ---
 
-**¡Felicitaciones! Tu Sistema CDA está listo para usar.** 🎉
+**¡Tu Sistema CDA está listo para usar!** 🎉
 
-Para comenzar, accede a `http://tu-servidor/siscda/` y usa las credenciales:
-- **Usuario**: `admin`
-- **Contraseña**: `admin123`
-
-**Recuerda cambiar la contraseña por defecto después del primer acceso.**
+**Recuerda cambiar la contraseña por defecto y hacer respaldos regulares.**
