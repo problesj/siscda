@@ -112,11 +112,11 @@ if (isset($_SESSION['error'])) {
                             // Determinar imagen por defecto según el sexo
                             $imagenDefault = '';
                             if ($row['URL_IMAGEN']) {
-                                $imagenDefault = $row['URL_IMAGEN'];
+                                $imagenDefault = '../' . $row['URL_IMAGEN'];
                             } else {
                                 $imagenDefault = $row['SEXO'] === 'Femenino' ? 
-                                    'assets/images/personas/default_female.svg' : 
-                                    'assets/images/personas/default_male.svg';
+                                    '../assets/images/personas/default_female.svg' : 
+                                    '../assets/images/personas/default_male.svg';
                             }
                             
                             echo "<tr>";
