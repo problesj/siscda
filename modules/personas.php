@@ -115,8 +115,8 @@ if (isset($_SESSION['error'])) {
                                 $imagenDefault = $row['URL_IMAGEN'];
                             } else {
                                 $imagenDefault = $row['SEXO'] === 'Femenino' ? 
-                                    '../assets/images/personas/default_female.svg' : 
-                                    '../assets/images/personas/default_male.svg';
+                                    'assets/images/personas/default_female.svg' : 
+                                    'assets/images/personas/default_male.svg';
                             }
                             
                             echo "<tr>";
