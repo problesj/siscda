@@ -27,6 +27,18 @@ if (isset($_SESSION['error'])) {
         <h6 class="m-0 font-weight-bold text-primary">Listado de Personas</h6>
     </div>
     <div class="card-body">
+        <!-- Campo de búsqueda -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas por nombre, apellido, RUT o familia...">
+                </div>
+            </div>
+        </div>
+        
         <div class="table-responsive">
             <table class="table table-bordered" id="tablaPersonas" width="100%" cellspacing="0">
                 <thead>
@@ -770,13 +782,19 @@ function editarPersonaDesdeVer() {
 
 // Inicializar cuando se carga la página
 document.addEventListener('DOMContentLoaded', function() {
-    cargarDatosIniciales();
-    
-    // Agregar evento de búsqueda en tiempo real
-    document.getElementById('searchInput').addEventListener('input', function() {
-        clearTimeout(this.timeout);
-        this.timeout = setTimeout(filtrarPersonas, 300);
-    });
+    // Esperar un poco para que la tabla se renderice completamente
+    setTimeout(function() {
+        cargarDatosIniciales();
+        
+        // Agregar evento de búsqueda en tiempo real
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                clearTimeout(this.timeout);
+                this.timeout = setTimeout(filtrarPersonas, 300);
+            });
+        }
+    }, 100);
 });
 </script>
 
