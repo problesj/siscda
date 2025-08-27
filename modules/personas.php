@@ -686,7 +686,7 @@ function verPersona(personaId) {
         .then(data => {
             if (data.success) {
                 const persona = data.persona;
-                mostrarDatosPersona(persona);
+                mostrarDatosPersona(persona, personaId);
             } else {
                 document.getElementById('datosPersona').innerHTML = `
                     <div class="alert alert-danger">
@@ -707,7 +707,7 @@ function verPersona(personaId) {
         });
 }
 
-function mostrarDatosPersona(persona) {
+function mostrarDatosPersona(persona, personaId) {
         // Generar el HTML con los datos completos de la persona
         const html = `
             <div class="row">
