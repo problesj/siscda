@@ -336,9 +336,142 @@ document.addEventListener('DOMContentLoaded', function() {
     if (imagenInput) {
         imagenInput.addEventListener('change', function() {
             mostrarVistaPrevia(this);
+            validarImagen(this);
+        });
+    }
+    
+    // Agregar validación del formulario
+    const formPersona = document.getElementById('formPersona');
+    if (formPersona) {
+        formPersona.addEventListener('submit', function(e) {
+            if (!validarFormulario()) {
+                e.preventDefault();
+            }
         });
     }
 });
+
+// Función para validar imagen antes de enviar
+function validarImagen(input) {
+    const archivo = input.files[0];
+    if (!archivo) return true;
+    
+    // Validar tipo de archivo
+    const tiposPermitidos = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!tiposPermitidos.includes(archivo.type)) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Tipo de archivo no permitido',
+            text: 'Solo se permiten archivos JPG y PNG. El archivo seleccionado es: ' + archivo.type,
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#dc3545'
+        });
+        input.value = '';
+        document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
+        return false;
+    }
+    
+    // Validar extensión
+    const extension = archivo.name.split('.').pop().toLowerCase();
+    const extensionesPermitidas = ['jpg', 'jpeg', 'png'];
+    if (!extensionesPermitidas.includes(extension)) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Extensión no permitida',
+            text: 'Solo se permiten archivos con extensión: ' + extensionesPermitidas.join(', '),
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#dc3545'
+        });
+        input.value = '';
+        document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
+        return false;
+    }
+    
+    // Validar tamaño (500KB máximo)
+    const tamanioMaximo = 500 * 1024; // 500KB en bytes
+    if (archivo.size > tamanioMaximo) {
+        const tamanioMB = (archivo.size / (1024 * 1024)).toFixed(2);
+        Swal.fire({
+            icon: 'error',
+            title: 'Archivo demasiado grande',
+            text: 'El archivo excede el tamaño máximo de 500KB. Tamaño actual: ' + tamanioMB + 'MB',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#dc3545'
+        });
+        input.value = '';
+        document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
+        return false;
+    }
+    
+    // Validar que no esté vacío
+    if (archivo.size === 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Archivo vacío',
+            text: 'El archivo seleccionado está vacío. Selecciona una imagen válida.',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#dc3545'
+        });
+        input.value = '';
+        document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
+        return false;
+    }
+    
+    return true;
+}
+
+// Función para validar el formulario completo
+function validarFormulario() {
+    const nombres = document.getElementById('nombres').value.trim();
+    const apellidoPaterno = document.getElementById('apellido_paterno').value.trim();
+    const sexo = document.getElementById('sexo').value;
+    
+    if (!nombres) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campo requerido',
+            text: 'El campo "Nombres" es obligatorio.',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#ffc107'
+        });
+        document.getElementById('nombres').focus();
+        return false;
+    }
+    
+    if (!apellidoPaterno) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campo requerido',
+            text: 'El campo "Apellido Paterno" es obligatorio.',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#ffc107'
+        });
+        document.getElementById('apellido_paterno').focus();
+        return false;
+    }
+    
+    if (!sexo) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campo requerido',
+            text: 'El campo "Sexo" es obligatorio.',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#ffc107'
+        });
+        document.getElementById('sexo').focus();
+        return false;
+    }
+    
+    // Validar imagen si se seleccionó una
+    const imagenInput = document.getElementById('imagen');
+    if (imagenInput.files.length > 0) {
+        if (!validarImagen(imagenInput)) {
+            return false;
+        }
+    }
+    
+    return true;
+}
 
 function editarPersona(id) {
     // Cambiar el modal a modo edición
