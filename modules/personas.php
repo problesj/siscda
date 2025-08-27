@@ -59,11 +59,26 @@ if (isset($_SESSION['error'])) {
                     <?php
                     try {
                         $pdo = conectarDB();
-                        $stmt = $pdo->query("SELECT p.*, gf.NOMBRE as grupo_familiar, r.nombre_rol as rol_nombre
+                        
+                        // Configuración de paginación
+                        $registros_por_pagina = 10;
+                        $pagina_actual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
+                        $offset = ($pagina_actual - 1) * $registros_por_pagina;
+                        
+                        // Obtener total de registros
+                        $stmt_total = $pdo->query("SELECT COUNT(*) as total FROM personas");
+                        $total_registros = $stmt_total->fetch()['total'];
+                        $total_paginas = ceil($total_registros / $registros_por_pagina);
+                        
+                        // Consulta principal con paginación
+                        $stmt = $pdo->prepare("SELECT p.*, gf.NOMBRE as grupo_familiar, r.nombre_rol as rol_nombre
                                            FROM personas p 
                                            LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID 
                                            LEFT JOIN roles r ON p.ROL = r.id
-                                           ORDER BY p.ID");
+                                           ORDER BY p.ID
+                                           LIMIT ? OFFSET ?");
+                        $stmt->execute([$registros_por_pagina, $offset]);
+                        
                         while ($row = $stmt->fetch()) {
                             // Determinar imagen por defecto según el sexo
                             $imagenDefault = '';
@@ -130,12 +145,70 @@ if (isset($_SESSION['error'])) {
                 </div>
             </div>
             
-            <!-- Información de registros -->
+            <!-- Información de registros y paginación -->
             <div class="row mt-2">
                 <div class="col-md-6">
                     <small class="text-muted" id="infoRegistros">
-                        Mostrando 1-25 de 0 registros
+                        Mostrando <?php echo $offset + 1; ?>-<?php echo min($offset + $registros_por_pagina, $total_registros); ?> de <?php echo $total_registros; ?> registros
                     </small>
+                </div>
+                <div class="col-md-6">
+                    <?php if ($total_paginas > 1): ?>
+                    <nav aria-label="Navegación de páginas">
+                        <ul class="pagination pagination-sm justify-content-end mb-0">
+                            <!-- Botón Anterior -->
+                            <?php if ($pagina_actual > 1): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?pagina=<?php echo $pagina_actual - 1; ?>" aria-label="Anterior">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                            <?php endif; ?>
+                            
+                            <!-- Números de página -->
+                            <?php
+                            $inicio = max(1, $pagina_actual - 2);
+                            $fin = min($total_paginas, $pagina_actual + 2);
+                            
+                            if ($inicio > 1): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?pagina=1">1</a>
+                            </li>
+                            <?php if ($inicio > 2): ?>
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                            <?php endif; ?>
+                            <?php endif; ?>
+                            
+                            <?php for ($i = $inicio; $i <= $fin; $i++): ?>
+                            <li class="page-item <?php echo $i == $pagina_actual ? 'active' : ''; ?>">
+                                <a class="page-link" href="?pagina=<?php echo $i; ?>"><?php echo $i; ?></a>
+                            </li>
+                            <?php endfor; ?>
+                            
+                            <?php if ($fin < $total_paginas): ?>
+                            <?php if ($fin < $total_paginas - 1): ?>
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                            <?php endif; ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?pagina=<?php echo $total_paginas; ?>"><?php echo $total_paginas; ?></a>
+                            </li>
+                            <?php endif; ?>
+                            
+                            <!-- Botón Siguiente -->
+                            <?php if ($pagina_actual < $total_paginas): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?pagina=<?php echo $pagina_actual + 1; ?>" aria-label="Siguiente">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            <?php endif; ?>
+                        </ul>
+                    </nav>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -567,38 +640,56 @@ function eliminarPersona(id) {
 }
 
 function verPersona(personaId) {
-    // Buscar la persona en los datos cargados
-    const filas = document.querySelectorAll('#tablaPersonas tbody tr');
-    let persona = null;
+    // Mostrar loading
+    document.getElementById('datosPersona').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Cargando información de la persona...</p>
+        </div>
+    `;
     
-    filas.forEach(fila => {
-        const celdas = fila.querySelectorAll('td');
-        if (celdas.length >= 11 && celdas[0].textContent == personaId) {
-            persona = {
-                ID: celdas[0].textContent,
-                URL_IMAGEN: celdas[1].querySelector('img')?.src || '',
-                RUT: celdas[2].textContent,
-                NOMBRES: celdas[3].textContent,
-                APELLIDO_PATERNO: celdas[4].textContent,
-                APELLIDO_MATERNO: celdas[5].textContent,
-                FAMILIA: celdas[6].textContent,
-                rol_nombre: celdas[7].textContent,
-                grupo_familiar: celdas[8].textContent
-            };
-        }
-    });
-    
-    if (persona) {
-        // Generar el HTML con los datos de la persona
+    // Obtener datos completos de la persona desde la base de datos
+    fetch('personas_actions.php?action=obtener&id=' + personaId)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const persona = data.persona;
+                mostrarDatosPersona(persona);
+            } else {
+                document.getElementById('datosPersona').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Error: ${data.error || 'No se pudo cargar la información de la persona'}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('datosPersona').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error de conexión. Intenta nuevamente.
+                </div>
+            `;
+        });
+}
+
+function mostrarDatosPersona(persona) {
+        // Generar el HTML con los datos completos de la persona
         const html = `
             <div class="row">
                 <div class="col-md-4">
                     <div class="text-center mb-3">
-                        <img src="${persona.URL_IMAGEN || '../assets/images/personas/default_male.svg'}" 
+                        <img src="${persona.URL_IMAGEN ? '../' + persona.URL_IMAGEN : '../assets/images/personas/default_male.svg'}" 
                              alt="Foto de ${persona.NOMBRES}" 
                              class="img-thumbnail" 
                              style="width: 150px; height: 150px; object-fit: cover;"
                              onerror="this.src='../assets/images/personas/default_male.svg'">
+                        <h5 class="mt-2">${persona.NOMBRES} ${persona.APELLIDO_PATERNO}</h5>
+                        <small class="text-muted">ID: ${persona.ID}</small>
                     </div>
                 </div>
                 <div class="col-md-8">
@@ -607,20 +698,35 @@ function verPersona(personaId) {
                             <h6 class="card-title text-primary">
                                 <i class="fas fa-id-card me-2"></i>Información Personal
                             </h6>
-                            <div class="mb-2">
-                                <strong>ID:</strong> ${persona.ID}
-                            </div>
-                            <div class="mb-2">
-                                <strong>RUT:</strong> ${persona.RUT !== '-' ? persona.RUT : 'No especificado'}
-                            </div>
-                            <div class="mb-2">
-                                <strong>Nombres:</strong> ${persona.NOMBRES}
-                            </div>
-                            <div class="mb-2">
-                                <strong>Apellido Paterno:</strong> ${persona.APELLIDO_PATERNO}
-                            </div>
-                            <div class="mb-2">
-                                <strong>Apellido Materno:</strong> ${persona.APELLIDO_MATERNO !== '-' ? persona.APELLIDO_MATERNO : 'No especificado'}
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <strong>RUT:</strong> ${persona.RUT || 'No especificado'}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Nombres:</strong> ${persona.NOMBRES}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Apellido Paterno:</strong> ${persona.APELLIDO_PATERNO}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Apellido Materno:</strong> ${persona.APELLIDO_MATERNO || 'No especificado'}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2">
+                                        <strong>Sexo:</strong> ${persona.SEXO || 'No especificado'}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Fecha de Nacimiento:</strong> ${persona.FECHA_NACIMIENTO ? new Date(persona.FECHA_NACIMIENTO).toLocaleDateString('es-ES') : 'No especificada'}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Email:</strong> ${persona.EMAIL || 'No especificado'}
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Teléfono:</strong> ${persona.TELEFONO || 'No especificado'}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -635,13 +741,13 @@ function verPersona(personaId) {
                                 <i class="fas fa-users me-2"></i>Información Familiar
                             </h6>
                             <div class="mb-2">
-                                <strong>Familia:</strong> ${persona.FAMILIA !== '-' ? persona.FAMILIA : 'No especificada'}
+                                <strong>Familia:</strong> ${persona.FAMILIA || 'No especificada'}
                             </div>
                             <div class="mb-2">
-                                <strong>Grupo Familiar:</strong> ${persona.grupo_familiar !== 'Sin grupo' ? persona.grupo_familiar : 'No asignado'}
+                                <strong>Grupo Familiar:</strong> ${persona.grupo_familiar || 'No asignado'}
                             </div>
                             <div class="mb-2">
-                                <strong>Rol:</strong> ${persona.rol_nombre !== '-' ? persona.rol_nombre : 'No asignado'}
+                                <strong>Rol:</strong> ${persona.rol_nombre || 'No asignado'}
                             </div>
                         </div>
                     </div>
@@ -650,17 +756,33 @@ function verPersona(personaId) {
                     <div class="card border-0 bg-light">
                         <div class="card-body">
                             <h6 class="card-title text-primary">
-                                <i class="fas fa-info-circle me-2"></i>Información Adicional
+                                <i class="fas fa-calendar me-2"></i>Información del Sistema
                             </h6>
-                            <div class="alert alert-info">
-                                <i class="fas fa-lightbulb me-2"></i>
-                                <strong>Nota:</strong> Para ver información más detallada como fecha de nacimiento, 
-                                email, teléfono y observaciones, edita la persona desde este modal.
+                            <div class="mb-2">
+                                <strong>Fecha de Creación:</strong> ${persona.FECHA_CREACION ? new Date(persona.FECHA_CREACION).toLocaleDateString('es-ES') + ' ' + new Date(persona.FECHA_CREACION).toLocaleTimeString('es-ES') : 'No disponible'}
+                            </div>
+                            <div class="mb-2">
+                                <strong>Última Actualización:</strong> ${persona.FECHA_ACTUALIZACION ? new Date(persona.FECHA_ACTUALIZACION).toLocaleDateString('es-ES') + ' ' + new Date(persona.FECHA_ACTUALIZACION).toLocaleTimeString('es-ES') : 'No disponible'}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+            
+            ${persona.OBSERVACIONES ? `
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">
+                                <i class="fas fa-sticky-note me-2"></i>Observaciones
+                            </h6>
+                            <p class="mb-0">${persona.OBSERVACIONES}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            ` : ''}
         `;
         
         // Mostrar los datos en el modal
@@ -711,16 +833,49 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
         searchInput.addEventListener('input', function() {
-            console.log('Búsqueda:', this.value);
-            // Implementar filtrado aquí
+            const searchTerm = this.value.toLowerCase();
+            filtrarTabla(searchTerm);
         });
     }
     
     // Actualizar información de registros
+    actualizarInfoRegistros();
+});
+
+// Función para filtrar la tabla
+function filtrarTabla(searchTerm) {
+    const filas = document.querySelectorAll('#tablaPersonas tbody tr');
+    let registrosVisibles = 0;
+    
+    filas.forEach(fila => {
+        const celdas = fila.querySelectorAll('td');
+        let textoFila = '';
+        
+        // Concatenar texto de todas las celdas relevantes (excluyendo imagen y acciones)
+        for (let i = 0; i < celdas.length - 2; i++) { // -2 para excluir imagen y acciones
+            if (i !== 1) { // Excluir columna de imagen
+                textoFila += celdas[i].textContent.toLowerCase() + ' ';
+            }
+        }
+        
+        if (textoFila.includes(searchTerm)) {
+            fila.style.display = '';
+            registrosVisibles++;
+        } else {
+            fila.style.display = 'none';
+        }
+    });
+    
+    // Actualizar información de registros filtrados
+    document.getElementById('infoRegistros').textContent = `Mostrando ${registrosVisibles} de ${filas.length} registros (filtrados)`;
+}
+
+// Función para actualizar información de registros
+function actualizarInfoRegistros() {
     const filas = document.querySelectorAll('#tablaPersonas tbody tr');
     const total = filas.length;
     document.getElementById('infoRegistros').textContent = `Mostrando 1-${total} de ${total} registros`;
-});
+}
 
 // Mostrar alertas de sesión con SweetAlert2
 <?php if ($successMessage): ?>

@@ -131,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         try {
             $pdo = conectarDB();
-            $stmt = $pdo->prepare("SELECT ID as id, RUT, NOMBRES, APELLIDO_PATERNO, APELLIDO_MATERNO, SEXO, FECHA_NACIMIENTO, FAMILIA, ROL, EMAIL, TELEFONO, OBSERVACIONES, GRUPO_FAMILIAR_ID, URL_IMAGEN, FECHA_CREACION, FECHA_ACTUALIZACION FROM personas WHERE ID = ?");
+            $stmt = $pdo->prepare("SELECT p.ID as id, p.RUT, p.NOMBRES, p.APELLIDO_PATERNO, p.APELLIDO_MATERNO, p.SEXO, p.FECHA_NACIMIENTO, p.FAMILIA, p.ROL, p.EMAIL, p.TELEFONO, p.OBSERVACIONES, p.GRUPO_FAMILIAR_ID, p.URL_IMAGEN, p.FECHA_CREACION, p.FECHA_ACTUALIZACION, gf.NOMBRE as grupo_familiar, r.nombre_rol as rol_nombre FROM personas p LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID LEFT JOIN roles r ON p.ROL = r.id WHERE p.ID = ?");
             $stmt->execute([$id]);
             $persona = $stmt->fetch();
             
