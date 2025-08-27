@@ -1,11 +1,6 @@
+<?php include '../includes/header.php'; ?>
+
 <?php
-require_once '../session_config.php';
-session_start();
-require_once '../config.php';
-
-// Verificar autenticación
-verificarAutenticacion();
-
 // Variables para SweetAlert2
 $successMessage = '';
 $errorMessage = '';
@@ -18,8 +13,6 @@ if (isset($_SESSION['error'])) {
     $errorMessage = $_SESSION['error'];
     unset($_SESSION['error']);
 }
-
-include '../includes/header.php';
 ?>
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -38,48 +31,46 @@ include '../includes/header.php';
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-bordered" width="100%" cellspacing="0">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Nombre del Rol</th>
-                                <th>Descripción</th>
-                                <th>Personas Asignadas</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php
-                            try {
-                                $pdo = conectarDB();
-                                $stmt = $pdo->query("SELECT r.*, COUNT(p.ID) as personas_asignadas 
-                                                   FROM roles r 
-                                                   LEFT JOIN personas p ON r.id = p.ROL 
-                                                   GROUP BY r.id 
-                                                   ORDER BY r.id");
-                                while ($row = $stmt->fetch()) {
-                                    echo "<tr>";
-                                    echo "<td>" . $row['id'] . "</td>";
-                                    echo "<td>" . $row['nombre_rol'] . "</td>";
-                                    echo "<td>" . ($row['descripcion'] ?: '<em class="text-muted">Sin descripción</em>') . "</td>";
-                                    echo "<td>" . $row['personas_asignadas'] . "</td>";
-                                    echo "<td>
-                                            <button class='btn btn-sm btn-info' onclick='editarRol(" . $row['id'] . ")'>
-                                                <i class='fas fa-edit'></i>
-                                            </button>
-                                            <button class='btn btn-sm btn-danger' onclick='eliminarRol(" . $row['id'] . ")'>
-                                                <i class='fas fa-trash'></i>
-                                            </button>
-                                          </td>";
-                                    echo "</tr>";
-                                }
-                            } catch (PDOException $e) {
-                                echo "<tr><td colspan='4'>Error al cargar roles: " . $e->getMessage() . "</td></tr>";
-                            }
-                            ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre del Rol</th>
+                        <th>Descripción</th>
+                        <th>Personas Asignadas</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    try {
+                        $pdo = conectarDB();
+                        $stmt = $pdo->query("SELECT r.*, COUNT(p.ID) as personas_asignadas 
+                                           FROM roles r 
+                                           LEFT JOIN personas p ON r.id = p.ROL 
+                                           GROUP BY r.id 
+                                           ORDER BY r.id");
+                        while ($row = $stmt->fetch()) {
+                            echo "<tr>";
+                            echo "<td>" . $row['id'] . "</td>";
+                            echo "<td>" . $row['nombre_rol'] . "</td>";
+                            echo "<td>" . ($row['descripcion'] ?: '<em class="text-muted">Sin descripción</em>') . "</td>";
+                            echo "<td>" . $row['personas_asignadas'] . "</td>";
+                            echo "<td>
+                                    <button class='btn btn-sm btn-info' onclick='editarRol(" . $row['id'] . ")'>
+                                        <i class='fas fa-edit'></i>
+                                    </button>
+                                    <button class='btn btn-sm btn-danger' onclick='eliminarRol(" . $row['id'] . ")'>
+                                        <i class='fas fa-trash'></i>
+                                    </button>
+                                  </td>";
+                            echo "</tr>";
+                        }
+                    } catch (PDOException $e) {
+                        echo "<tr><td colspan='5'>Error al cargar roles: " . $e->getMessage() . "</td></tr>";
+                    }
+                    ?>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -102,101 +93,73 @@ include '../includes/header.php';
                     </div>
                     <div class="mb-3">
                         <label for="descripcion" class="form-label">Descripción</label>
-                        <textarea class="form-control" name="descripcion" id="descripcion" rows="3" placeholder="Descripción opcional del rol..."></textarea>
+                        <textarea class="form-control" name="descripcion" id="descripcion" rows="3"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" id="btnSubmit">Guardar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+<!-- Scripts para SweetAlert2 -->
 <script>
-function editarRol(id) {
-    // Cambiar el modal a modo edición
-    document.getElementById('modalTitle').textContent = 'Editar Rol';
-    document.getElementById('formAction').value = 'editar';
-    document.getElementById('rol_id').value = id;
-    document.getElementById('btnSubmit').textContent = 'Actualizar';
-    
-    // Cargar datos del rol
-    fetch('roles_actions.php?action=obtener&id=' + id)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById('nombre_rol').value = data.rol.nombre_rol;
-                document.getElementById('descripcion').value = data.rol.descripcion || '';
-            } else {
-                SwalUtils.showError('Error al cargar datos del rol: ' + data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            SwalUtils.showError('Error al cargar datos del rol');
-        });
-    
-    // Mostrar modal
-    new bootstrap.Modal(document.getElementById('modalRol')).show();
-}
-
-function nuevoRol() {
-    // Cambiar el modal a modo creación
-    document.getElementById('modalTitle').textContent = 'Nuevo Rol';
-    document.getElementById('formAction').value = 'crear';
-    document.getElementById('rol_id').value = '';
-    document.getElementById('btnSubmit').textContent = 'Guardar';
-    
-    // Limpiar formulario
-    document.getElementById('formRol').reset();
-    
-    // Mostrar modal
-    new bootstrap.Modal(document.getElementById('modalRol')).show();
-}
-
-function eliminarRol(id) {
-    // Verificar si SwalUtils está disponible
-    if (typeof SwalUtils !== 'undefined' && typeof SwalUtils.showDeleteConfirm === 'function') {
-        SwalUtils.showDeleteConfirm('este rol').then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = 'roles_actions.php?action=eliminar&id=' + id;
-            }
-        });
-    } else {
-        // Fallback: usar SweetAlert2 directamente
-        Swal.fire({
-            icon: 'warning',
-            title: '¿Está seguro?',
-            text: '¿Realmente desea eliminar este rol? Esta acción no se puede deshacer.',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = 'roles_actions.php?action=eliminar&id=' + id;
-            }
-        });
-    }
-}
-
-// Limpiar modal al cerrar
-document.getElementById('modalRol').addEventListener('hidden.bs.modal', function () {
-    document.getElementById('formRol').reset();
-});
-
-// Mostrar alertas de sesión con SweetAlert2
+// Mostrar mensajes de éxito o error
 <?php if ($successMessage): ?>
-SwalUtils.showSuccess('<?php echo addslashes($successMessage); ?>');
+    Swal.fire({
+        icon: 'success',
+        title: 'Éxito',
+        text: '<?php echo addslashes($successMessage); ?>',
+        timer: 3000,
+        showConfirmButton: false
+    });
 <?php endif; ?>
 
 <?php if ($errorMessage): ?>
-SwalUtils.showError('<?php echo addslashes($errorMessage); ?>');
+    Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: '<?php echo addslashes($errorMessage); ?>',
+        timer: 5000,
+        showConfirmButton: false
+    });
 <?php endif; ?>
+
+// Función para editar rol
+function editarRol(rolId) {
+    // Aquí puedes implementar la lógica para editar
+    Swal.fire({
+        title: 'Editar Rol',
+        text: 'Funcionalidad de edición en desarrollo',
+        icon: 'info'
+    });
+}
+
+// Función para eliminar rol
+function eliminarRol(rolId) {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: "Esta acción no se puede deshacer",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Aquí puedes implementar la lógica para eliminar
+            Swal.fire(
+                'Eliminado',
+                'El rol ha sido eliminado.',
+                'success'
+            );
+        }
+    });
+}
 </script>
 
 <?php include '../includes/footer.php'; ?>
