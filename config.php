@@ -26,7 +26,8 @@ function conectarDB() {
         );
         return $pdo;
     } catch (PDOException $e) {
-        die("Error de conexión: " . $e->getMessage());
+        error_log("Error de conexión a la base de datos: " . $e->getMessage());
+        die("Error de conexión a la base de datos. Contacta al administrador.");
     }
 }
 
