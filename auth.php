@@ -10,27 +10,6 @@ require_once 'includes/auth_functions.php';
 // Si el usuario ya está autenticado, redirigir al dashboard
 verificarNoAutenticado();
 
-// Fallback: definir limpiarDatos si no existe y registrar diagnostico
-if (!function_exists('limpiarDatos')) {
-	// Registrar diagnosticos para depuracion
-	error_log('auth.php: limpiarDatos() no existe tras incluir auth_functions.php');
-	error_log('auth.php: realpath(auth_functions.php)=' . @realpath(__DIR__ . '/includes/auth_functions.php'));
-	$included = get_included_files();
-	error_log('auth.php: included_files count=' . count($included));
-	// Definir version segura basica para no bloquear el login
-	function limpiarDatos($datos) {
-		$datos = trim($datos);
-		$datos = stripslashes($datos);
-		$datos = htmlspecialchars($datos, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-		return $datos;
-	}
-}
-
-if (!function_exists('conectarDB')) {
-	error_log("Función conectarDB() no está disponible en auth.php");
-	die("Error: Función de conexión a base de datos no disponible");
-}
-
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 	// Verificar que los datos POST estén presentes
 	if (!isset($_POST['username']) || !isset($_POST['password'])) {

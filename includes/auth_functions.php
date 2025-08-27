@@ -12,6 +12,9 @@ if (headers_sent()) {
 // Incluir configuración de sesión
 require_once dirname(__DIR__) . '/session_config.php';
 
+// Incluir configuración de la base de datos
+require_once dirname(__DIR__) . '/config.php';
+
 // Iniciar sesión si no está iniciada
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -178,5 +181,15 @@ function renovarSesion() {
         return true;
     }
     return false;
+}
+
+/**
+ * Función para limpiar datos de entrada
+ */
+function limpiarDatos($datos) {
+    $datos = trim($datos);
+    $datos = stripslashes($datos);
+    $datos = htmlspecialchars($datos, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    return $datos;
 }
 ?>
