@@ -35,6 +35,10 @@ verificarAutenticacion();
                         <i class="fas fa-user"></i> <?php echo $_SESSION['nombre_completo']; ?>
                     </a>
                     <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/siscda/perfil.php">
+                            <i class="fas fa-user-cog"></i> Mi Perfil
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="/siscda/logout.php">
                             <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
                         </a></li>

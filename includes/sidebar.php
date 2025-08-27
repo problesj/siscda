@@ -40,6 +40,23 @@
                 <i class="fas fa-chart-bar"></i> Reportes
             </a>
         </li>
+        
+        <!-- Separador -->
+        <li class="nav-item">
+            <hr class="dropdown-divider">
+        </li>
+        
+        <!-- Opciones de Usuario -->
+        <li class="nav-item">
+            <a class="nav-link" href="/siscda/perfil.php">
+                <i class="fas fa-user-cog"></i> Mi Perfil
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="/siscda/logout.php">
+                <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+            </a>
+        </li>
 
     </ul>
 </div>

@@ -60,6 +60,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 			$_SESSION['username'] = $usuario['USERNAME'];
 			$_SESSION['nombre_completo'] = $usuario['NOMBRE_COMPLETO'];
 			
+			// Actualizar último acceso
+			try {
+				$stmt = $pdo->prepare("UPDATE usuarios SET ULTIMO_ACCESO = NOW() WHERE USUARIO_ID = ?");
+				$stmt->execute([$usuario['USUARIO_ID']]);
+			} catch (PDOException $e) {
+				error_log("Error al actualizar último acceso: " . $e->getMessage());
+			}
+			
 			// Log de autenticación exitosa
 			error_log("Usuario autenticado exitosamente: $username");
 			
