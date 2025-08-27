@@ -1,0 +1,6 @@
+<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" fill="#e74c3c"/>
+  <circle cx="100" cy="70" r="30" fill="#ffffff"/>
+  <path d="M70 110 Q100 130 130 110 L130 190 L70 190 Z" fill="#ffffff"/>
+  <text x="100" y="190" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="16" font-weight="bold">MUJER</text>
+</svg>

@@ -32,6 +32,7 @@ if (isset($_SESSION['error'])) {
                 <thead>
                     <tr>
                         <th>ID</th>
+                        <th>Imagen</th>
                         <th>RUT</th>
                         <th>Nombres</th>
                         <th>Apellido Paterno</th>
@@ -52,8 +53,19 @@ if (isset($_SESSION['error'])) {
                                            LEFT JOIN roles r ON p.ROL = r.id
                                            ORDER BY p.ID");
                         while ($row = $stmt->fetch()) {
+                            // Determinar imagen por defecto según el sexo
+                            $imagenDefault = '';
+                            if ($row['URL_IMAGEN']) {
+                                $imagenDefault = $row['URL_IMAGEN'];
+                            } else {
+                                $imagenDefault = $row['SEXO'] === 'Femenino' ? 
+                                    '../assets/images/personas/default_female.svg' : 
+                                    '../assets/images/personas/default_male.svg';
+                            }
+                            
                             echo "<tr>";
                             echo "<td>" . $row['ID'] . "</td>";
+                            echo "<td><img src='" . htmlspecialchars($imagenDefault) . "' alt='Foto de " . htmlspecialchars($row['NOMBRES']) . "' class='img-thumbnail' style='width: 50px; height: 50px; object-fit: cover;' onerror=\"this.src='../assets/images/personas/default_male.svg'\"></td>";
                             echo "<td>" . ($row['RUT'] ?? '-') . "</td>";
                             echo "<td>" . $row['NOMBRES'] . "</td>";
                             echo "<td>" . $row['APELLIDO_PATERNO'] . "</td>";
@@ -77,7 +89,7 @@ if (isset($_SESSION['error'])) {
                             echo "</tr>";
                         }
                     } catch (PDOException $e) {
-                        echo "<tr><td colspan='12'>Error al cargar personas: " . $e->getMessage() . "</td></tr>";
+                        echo "<tr><td colspan='11'>Error al cargar personas: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
                     }
                     ?>
                 </tbody>
@@ -126,7 +138,7 @@ if (isset($_SESSION['error'])) {
                 <h5 class="modal-title" id="modalTitle">Nueva Persona</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="personas_actions.php" method="POST" id="formPersona">
+            <form action="personas_actions.php" method="POST" id="formPersona" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="action" id="formAction" value="crear">
                     <input type="hidden" name="persona_id" id="persona_id" value="">
@@ -234,6 +246,25 @@ if (isset($_SESSION['error'])) {
                             </div>
                         </div>
                     </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="imagen" class="form-label">Imagen de la Persona</label>
+                                <input type="file" class="form-control" id="imagen" name="imagen" accept="image/*">
+                                <div class="form-text">Formatos permitidos: JPG, PNG. Tamaño máximo: 500KB</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Vista Previa</label>
+                                <div class="text-center">
+                                    <img id="previewImagen" src="../assets/images/personas/default_male.svg" 
+                                         alt="Vista previa" class="img-thumbnail" 
+                                         style="width: 100px; height: 100px; object-fit: cover;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <label for="observaciones" class="form-label">Observaciones</label>
                         <textarea class="form-control" id="observaciones" name="observaciones" rows="3" placeholder="Información adicional..."></textarea>
@@ -276,6 +307,27 @@ if (isset($_SESSION['error'])) {
 </div>
 
 <script>
+// Función para mostrar vista previa de imagen
+function mostrarVistaPrevia(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('previewImagen').src = e.target.result;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// Evento para mostrar vista previa de imagen
+document.addEventListener('DOMContentLoaded', function() {
+    const imagenInput = document.getElementById('imagen');
+    if (imagenInput) {
+        imagenInput.addEventListener('change', function() {
+            mostrarVistaPrevia(this);
+        });
+    }
+});
+
 function editarPersona(id) {
     // Cambiar el modal a modo edición
     document.getElementById('modalTitle').textContent = 'Editar Persona';
@@ -300,6 +352,17 @@ function editarPersona(id) {
                 document.getElementById('telefono').value = data.persona.TELEFONO || '';
                 document.getElementById('grupo_familiar_id').value = data.persona.GRUPO_FAMILIAR_ID || '';
                 document.getElementById('observaciones').value = data.persona.OBSERVACIONES || '';
+                
+                // Mostrar imagen actual si existe
+                if (data.persona.URL_IMAGEN) {
+                    document.getElementById('previewImagen').src = data.persona.URL_IMAGEN;
+                } else {
+                    // Mostrar imagen por defecto según sexo
+                    const imagenDefault = data.persona.SEXO === 'Femenino' ? 
+                        '../assets/images/personas/default_female.svg' : 
+                        '../assets/images/personas/default_male.svg';
+                    document.getElementById('previewImagen').src = imagenDefault;
+                }
             } else {
                 SwalUtils.showError('Error al cargar datos de la persona: ' + data.error);
             }
@@ -322,6 +385,9 @@ function nuevoPersona() {
     
     // Limpiar formulario
     document.getElementById('formPersona').reset();
+    
+    // Resetear imagen de vista previa
+    document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
     
     // Mostrar modal
     new bootstrap.Modal(document.getElementById('modalPersona')).show();
@@ -358,6 +424,7 @@ function eliminarPersona(id) {
 // Limpiar modal al cerrar
 document.getElementById('modalPersona').addEventListener('hidden.bs.modal', function () {
     document.getElementById('formPersona').reset();
+    document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
 });
 
 // Mostrar alertas de sesión con SweetAlert2
@@ -483,28 +550,44 @@ function actualizarTabla(datos) {
     const tbody = document.querySelector('#tablaPersonas tbody');
     tbody.innerHTML = '';
     
-            datos.forEach(persona => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${persona.ID || '-'}</td>
-                <td>${persona.RUT || '-'}</td>
-                <td>${persona.NOMBRES || '-'}</td>
-                <td>${persona.APELLIDO_PATERNO || '-'}</td>
-                <td>${persona.APELLIDO_MATERNO || '-'}</td>
-                <td>${persona.FAMILIA || '-'}</td>
-                <td>${persona.rol_nombre || '-'}</td>
-                <td>${persona.grupo_familiar || 'Sin grupo'}</td>
-                <td>
-                    <button class='btn btn-sm btn-info' onclick='editarPersona(${persona.ID})'>
+                datos.forEach(persona => {
+        // Determinar imagen por defecto según el sexo
+        let imagenSrc = '';
+        if (persona.URL_IMAGEN) {
+            imagenSrc = persona.URL_IMAGEN;
+        } else {
+            imagenSrc = persona.SEXO === 'Femenino' ? 
+                '../assets/images/personas/default_female.svg' : 
+                '../assets/images/personas/default_male.svg';
+        }
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${persona.ID || '-'}</td>
+            <td><img src="${imagenSrc}" alt="Foto de ${persona.NOMBRES || 'persona'}" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;" onerror="this.src='../assets/images/personas/default_male.svg'"></td>
+            <td>${persona.RUT || '-'}</td>
+            <td>${persona.NOMBRES || '-'}</td>
+            <td>${persona.APELLIDO_PATERNO || '-'}</td>
+            <td>${persona.APELLIDO_MATERNO || '-'}</td>
+            <td>${persona.FAMILIA || '-'}</td>
+            <td>${persona.rol_nombre || '-'}</td>
+            <td>${persona.grupo_familiar || 'Sin grupo'}</td>
+            <td>
+                <div class='btn-group' role='group'>
+                    <button class='btn btn-sm btn-primary' onclick='verPersona(${persona.ID})' title='Ver datos'>
+                        <i class='fas fa-eye'></i>
+                    </button>
+                    <button class='btn btn-sm btn-info' onclick='editarPersona(${persona.ID})' title='Editar'>
                         <i class='fas fa-edit'></i>
                     </button>
-                    <button class='btn btn-sm btn-danger' onclick='eliminarPersona(${persona.ID})'>
+                    <button class='btn btn-sm btn-danger' onclick='eliminarPersona(${persona.ID})' title='Eliminar'>
                         <i class='fas fa-trash'></i>
                     </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
 }
 
 // Función para generar paginación
@@ -557,16 +640,17 @@ function cargarDatosIniciales() {
     
     filas.forEach(fila => {
         const celdas = fila.querySelectorAll('td');
-        if (celdas.length >= 9) {
+        if (celdas.length >= 11) {
             datosPersonas.push({
                 ID: celdas[0].textContent,
-                RUT: celdas[1].textContent,
-                NOMBRES: celdas[2].textContent,
-                APELLIDO_PATERNO: celdas[3].textContent,
-                APELLIDO_MATERNO: celdas[4].textContent,
-                FAMILIA: celdas[5].textContent,
-                rol_nombre: celdas[6].textContent,
-                grupo_familiar: celdas[7].textContent
+                URL_IMAGEN: celdas[1].querySelector('img')?.src || '',
+                RUT: celdas[2].textContent,
+                NOMBRES: celdas[3].textContent,
+                APELLIDO_PATERNO: celdas[4].textContent,
+                APELLIDO_MATERNO: celdas[5].textContent,
+                FAMILIA: celdas[6].textContent,
+                rol_nombre: celdas[7].textContent,
+                grupo_familiar: celdas[8].textContent
             });
         }
     });
@@ -584,7 +668,16 @@ function verPersona(personaId) {
         // Generar el HTML con los datos de la persona
         const html = `
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <div class="text-center mb-3">
+                        <img src="${persona.URL_IMAGEN || '../assets/images/personas/default_male.svg'}" 
+                             alt="Foto de ${persona.NOMBRES}" 
+                             class="img-thumbnail" 
+                             style="width: 150px; height: 150px; object-fit: cover;"
+                             onerror="this.src='../assets/images/personas/default_male.svg'">
+                    </div>
+                </div>
+                <div class="col-md-8">
                     <div class="card border-0 bg-light">
                         <div class="card-body">
                             <h6 class="card-title text-primary">
@@ -608,6 +701,9 @@ function verPersona(personaId) {
                         </div>
                     </div>
                 </div>
+            </div>
+            
+            <div class="row mt-3">
                 <div class="col-md-6">
                     <div class="card border-0 bg-light">
                         <div class="card-body">
@@ -626,10 +722,7 @@ function verPersona(personaId) {
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="row mt-3">
-                <div class="col-12">
+                <div class="col-md-6">
                     <div class="card border-0 bg-light">
                         <div class="card-body">
                             <h6 class="card-title text-primary">
