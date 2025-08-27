@@ -35,6 +35,18 @@ $baseUrl = getBaseUrl();
     <!-- Gestor de sesiones del cliente -->
     <script src="<?php echo $baseUrl; ?>/assets/js/session-manager.js"></script>
     
+    <!-- Estilos del menú móvil -->
+    <link href="<?php echo $baseUrl; ?>/assets/css/mobile-menu.css" rel="stylesheet">
+    
+    <!-- Estilos del toggle del sidebar -->
+    <link href="<?php echo $baseUrl; ?>/assets/css/sidebar-toggle.css" rel="stylesheet">
+    
+    <!-- Script del menú móvil -->
+    <script src="<?php echo $baseUrl; ?>/assets/js/mobile-menu.js"></script>
+    
+    <!-- Script del toggle del sidebar -->
+    <script src="<?php echo $baseUrl; ?>/assets/js/sidebar-toggle.js"></script>
+    
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">
             <a class="navbar-brand" href="<?php echo $baseUrl; ?>/dashboard.php">
@@ -42,7 +54,22 @@ $baseUrl = getBaseUrl();
             </a>
             
             <div class="navbar-nav ms-auto">
-                <div class="nav-item dropdown">
+                <!-- Botón para ocultar/mostrar sidebar (desktop/tablet) -->
+                <div class="nav-item d-none d-md-block">
+                    <button class="btn btn-outline-light btn-sm" id="sidebarToggle" onclick="toggleSidebar()" title="Ocultar/Mostrar menú lateral">
+                        <i class="fas fa-bars" id="sidebarToggleIcon"></i>
+                    </button>
+                </div>
+                
+                <!-- Botón del menú móvil -->
+                <div class="nav-item d-md-none">
+                    <button class="mobile-menu-toggle" onclick="openMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+                
+                <!-- Menú de usuario (desktop) -->
+                <div class="nav-item dropdown d-none d-md-block">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                         <i class="fas fa-user"></i> <?php echo htmlspecialchars($_SESSION['nombre_completo'] ?? 'Usuario'); ?>
                     </a>
@@ -62,7 +89,7 @@ $baseUrl = getBaseUrl();
     
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
+            <div class="col-md-3 col-lg-2 d-md-block bg-light sidebar" id="sidebar">
                 <?php 
                 $sidebarPath = $projectPath . '/includes/sidebar.php';
                 if (file_exists($sidebarPath)) {
@@ -72,4 +99,7 @@ $baseUrl = getBaseUrl();
                 }
                 ?>
             </div>
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" id="mainContent">
+            
+            <!-- Incluir menú móvil -->
+            <?php include $projectPath . '/includes/mobile-menu.php'; ?>

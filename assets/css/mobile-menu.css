@@ -1,0 +1,371 @@
+/* Estilos para el menú móvil moderno */
+.mobile-menu-container {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    z-index: 1050;
+    overflow-y: auto;
+}
+
+.mobile-menu-header {
+    background: #28a745;
+    color: white;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+
+
+.mobile-menu-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+    text-align: center;
+    flex: 1;
+}
+
+.mobile-menu-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: background-color 0.3s;
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.mobile-menu-close:hover {
+    background-color: rgba(255,255,255,0.2);
+}
+
+.mobile-menu-content {
+    padding: 1.5rem;
+    background: white;
+    min-height: calc(100vh - 80px);
+}
+
+.mobile-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.mobile-menu-category {
+    background: linear-gradient(135deg, var(--category-color) 0%, var(--category-color-dark) 100%);
+    border-radius: 15px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+    color: white;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.mobile-menu-category:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    color: white;
+    text-decoration: none;
+}
+
+.mobile-menu-category:active {
+    transform: translateY(-2px);
+}
+
+.mobile-menu-category-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.mobile-menu-category-text {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* Colores de categorías */
+.mobile-menu-category.dashboard {
+    --category-color: #007bff;
+    --category-color-dark: #0056b3;
+}
+
+.mobile-menu-category.usuarios {
+    --category-color: #28a745;
+    --category-color-dark: #1e7e34;
+}
+
+.mobile-menu-category.personas {
+    --category-color: #ffc107;
+    --category-color-dark: #e0a800;
+}
+
+.mobile-menu-category.grupos {
+    --category-color: #17a2b8;
+    --category-color-dark: #117a8b;
+}
+
+.mobile-menu-category.roles {
+    --category-color: #6f42c1;
+    --category-color-dark: #5a2d91;
+}
+
+.mobile-menu-category.cultos {
+    --category-color: #dc3545;
+    --category-color-dark: #c82333;
+}
+
+.mobile-menu-category.asistencias {
+    --category-color: #fd7e14;
+    --category-color-dark: #e55a00;
+}
+
+.mobile-menu-category.reportes {
+    --category-color: #20c997;
+    --category-color-dark: #17a2b8;
+}
+
+.mobile-menu-category.perfil {
+    --category-color: #6c757d;
+    --category-color-dark: #545b62;
+}
+
+.mobile-menu-category.logout {
+    --category-color: #dc3545;
+    --category-color-dark: #c82333;
+}
+
+/* Botón de menú móvil */
+.mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.mobile-menu-toggle:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+/* Footer del menú móvil */
+.mobile-menu-footer {
+    background: white;
+    padding: 1rem;
+    border-top: 1px solid #e9ecef;
+    text-align: center;
+}
+
+.mobile-menu-footer-text {
+    color: #6c757d;
+    font-size: 0.8rem;
+    margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .mobile-menu-toggle {
+        display: block;
+    }
+    
+    .sidebar {
+        display: none !important;
+    }
+    
+    .mobile-menu-container {
+        display: block;
+    }
+    
+    .mobile-menu-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.8rem;
+    }
+    
+    .mobile-menu-category {
+        padding: 1.2rem 0.8rem;
+    }
+    
+    .mobile-menu-category-icon {
+        font-size: 2rem;
+    }
+    
+    .mobile-menu-category-text {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .mobile-menu-grid {
+        grid-template-columns: 1fr;
+        gap: 0.8rem;
+    }
+    
+    .mobile-menu-category {
+        padding: 1.5rem 1rem;
+    }
+    
+    .mobile-menu-category-icon {
+        font-size: 2.5rem;
+    }
+    
+    .mobile-menu-category-text {
+        font-size: 1rem;
+    }
+}
+
+/* Animaciones */
+@keyframes slideInUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutDown {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+}
+
+.mobile-menu-container {
+    animation: slideInUp 0.3s ease-out;
+}
+
+/* Efectos de hover mejorados */
+.mobile-menu-category::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.mobile-menu-category:hover::before {
+    left: 100%;
+}
+
+/* Estados activos */
+.mobile-menu-category.active {
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+}
+
+/* Mejoras de usabilidad para móviles */
+@media (max-width: 767.98px) {
+    /* Hacer los elementos del menú móvil más grandes */
+    .mobile-menu-category {
+        min-height: 80px;
+        padding: 1.5rem;
+        border-radius: 16px;
+        transition: all 0.3s ease;
+    }
+    
+    .mobile-menu-category:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .mobile-menu-category:active {
+        transform: scale(0.98);
+    }
+    
+    .mobile-menu-category-icon {
+        font-size: 2rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .mobile-menu-category-text {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    
+    /* Hacer el FAB más grande */
+    .mobile-menu-fab {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        font-size: 1.5rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    
+    .mobile-menu-fab:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 25px rgba(0,0,0,0.4);
+    }
+    
+    /* Hacer el botón de cerrar más grande */
+    .mobile-menu-close {
+        width: 48px;
+        height: 48px;
+        font-size: 1.8rem;
+        border-radius: 50%;
+    }
+    
+    .mobile-menu-close:hover {
+        background-color: rgba(255,255,255,0.2);
+        transform: scale(1.1);
+    }
+    
+    /* Mejorar la accesibilidad táctil */
+    .mobile-menu-category,
+    .mobile-menu-fab,
+    .mobile-menu-close,
+    .mobile-menu-toggle {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+/* Indicador de página actual */
+.mobile-menu-category.current-page {
+    border: 3px solid rgba(255,255,255,0.8);
+    box-shadow: 0 0 20px rgba(255,255,255,0.3);
+}

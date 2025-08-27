@@ -20,6 +20,28 @@ if (isset($_SESSION['error'])) {
     $errorMessage = $_SESSION['error'];
     unset($_SESSION['error']);
 }
+
+try {
+    $pdo = conectarDB();
+    
+    // Obtener todas las personas para el filtrado en tiempo real
+    $sql = "SELECT p.*, gf.NOMBRE as GRUPO_FAMILIAR_NOMBRE, r.nombre_rol as ROL_NOMBRE 
+            FROM personas p 
+            LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID 
+            LEFT JOIN roles r ON p.ROL = r.id 
+            ORDER BY p.FAMILIA, p.APELLIDO_PATERNO, p.NOMBRES";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    $personas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Convertir a JSON para JavaScript
+    $personas_json = json_encode($personas);
+} catch (PDOException $e) {
+    echo '<div class="alert alert-danger">Error al cargar las personas: ' . htmlspecialchars($e->getMessage()) . '</div>';
+    $personas = [];
+    $personas_json = '[]';
+}
 ?>
 
 <div class="card shadow mb-4">
@@ -34,14 +56,26 @@ if (isset($_SESSION['error'])) {
                     <span class="input-group-text">
                         <i class="fas fa-search"></i>
                     </span>
-                    <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas por nombre, apellido, RUT o familia..." value="<?php echo htmlspecialchars($buscar); ?>">
-                    <?php if (!empty($buscar)): ?>
-                    <button class="btn btn-outline-secondary" type="button" onclick="limpiarBusqueda()" title="Limpiar búsqueda">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <?php endif; ?>
+                    <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas..." oninput="filtrarPersonas()">
                 </div>
             </div>
+            <div class="col-md-6 text-end">
+                <div class="d-flex align-items-center justify-content-end">
+                    <label for="itemsPorPagina" class="me-2">Items:</label>
+                    <select class="form-select form-select-sm me-2" id="itemsPorPagina" onchange="cambiarItemsPorPagina()" style="width: auto;">
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <span id="infoRegistros" class="text-muted"></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Indicador de estado de búsqueda -->
+        <div id="estadoBusqueda" class="alert alert-info" style="display: none;">
+            <i class="fas fa-search"></i> Búsqueda en tiempo real activa
         </div>
         
         <div class="table-responsive">
@@ -61,178 +95,20 @@ if (isset($_SESSION['error'])) {
                     </tr>
                 </thead>
                 <tbody>
-                    <?php
-                    try {
-                        $pdo = conectarDB();
-                        
-                        // Configuración de paginación y búsqueda
-                        $registros_por_pagina = isset($_GET['items']) ? (int)$_GET['items'] : 25;
-                        $pagina_actual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
-                        $buscar = isset($_GET['buscar']) ? trim($_GET['buscar']) : '';
-                        
-                        // Construir consulta base
-                        $sql_base = "FROM personas p 
-                                    LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID 
-                                    LEFT JOIN roles r ON p.ROL = r.id";
-                        
-                        $where_conditions = [];
-                        $params = [];
-                        
-                        // Agregar condiciones de búsqueda si existe término
-                        if (!empty($buscar)) {
-                            $where_conditions[] = "(p.NOMBRES LIKE ? OR p.APELLIDO_PATERNO LIKE ? OR p.APELLIDO_MATERNO LIKE ? OR p.RUT LIKE ? OR p.FAMILIA LIKE ?)";
-                            $search_term = '%' . $buscar . '%';
-                            $params = array_merge($params, [$search_term, $search_term, $search_term, $search_term, $search_term]);
-                        }
-                        
-                        $sql_where = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
-                        
-                        // Obtener total de registros
-                        $sql_total = "SELECT COUNT(*) as total " . $sql_base . " " . $sql_where;
-                        $stmt_total = $pdo->prepare($sql_total);
-                        $stmt_total->execute($params);
-                        $total_registros = $stmt_total->fetch()['total'];
-                        $total_paginas = ceil($total_registros / $registros_por_pagina);
-                        
-                        // Ajustar página actual si es mayor al total
-                        if ($pagina_actual > $total_paginas && $total_paginas > 0) {
-                            $pagina_actual = $total_paginas;
-                        }
-                        
-                        $offset = ($pagina_actual - 1) * $registros_por_pagina;
-                        
-                        // Consulta principal con paginación y búsqueda
-                        $sql = "SELECT p.*, gf.NOMBRE as grupo_familiar, r.nombre_rol as rol_nombre " . $sql_base . " " . $sql_where . " ORDER BY p.ID LIMIT ? OFFSET ?";
-                        $stmt = $pdo->prepare($sql);
-                        $params[] = $registros_por_pagina;
-                        $params[] = $offset;
-                        $stmt->execute($params);
-                        
-                        while ($row = $stmt->fetch()) {
-                            // Determinar imagen por defecto según el sexo
-                            $imagenDefault = '';
-                            if ($row['URL_IMAGEN']) {
-                                $imagenDefault = '../' . $row['URL_IMAGEN'];
-                            } else {
-                                $imagenDefault = $row['SEXO'] === 'Femenino' ? 
-                                    '../assets/images/personas/default_female.svg' : 
-                                    '../assets/images/personas/default_male.svg';
-                            }
-                            
-                            echo "<tr>";
-                            echo "<td>" . $row['ID'] . "</td>";
-                            echo "<td><img src='" . htmlspecialchars($imagenDefault) . "' alt='Foto de " . htmlspecialchars($row['NOMBRES']) . "' class='img-thumbnail' style='width: 50px; height: 50px; object-fit: cover;' onerror=\"this.src='../assets/images/personas/default_male.svg'\"></td>";
-                            echo "<td>" . ($row['RUT'] ?? '-') . "</td>";
-                            echo "<td>" . $row['NOMBRES'] . "</td>";
-                            echo "<td>" . $row['APELLIDO_PATERNO'] . "</td>";
-                            echo "<td>" . ($row['APELLIDO_MATERNO'] ?? '-') . "</td>";
-                            echo "<td>" . ($row['FAMILIA'] ?? '-') . "</td>";
-                            echo "<td>" . ($row['rol_nombre'] ?? '-') . "</td>";
-                            echo "<td>" . ($row['grupo_familiar'] ?? 'Sin grupo') . "</td>";
-                            echo "<td>
-                                    <div class='btn-group' role='group'>
-                                        <button class='btn btn-sm btn-primary' onclick='verPersona(" . $row['ID'] . ")' title='Ver datos'>
-                                            <i class='fas fa-eye'></i>
-                                        </button>
-                                        <button class='btn btn-sm btn-info' onclick='editarPersona(" . $row['ID'] . ")' title='Editar'>
-                                            <i class='fas fa-edit'></i>
-                                        </button>
-                                        <button class='btn btn-sm btn-danger' onclick='eliminarPersona(" . $row['ID'] . ")' title='Eliminar'>
-                                            <i class='fas fa-trash'></i>
-                                        </button>
-                                    </div>
-                                  </td>";
-                            echo "</tr>";
-                        }
-                    } catch (PDOException $e) {
-                        echo "<tr><td colspan='11'>Error al cargar personas: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
-                    }
-                    ?>
+                    <!-- Se llenará dinámicamente con JavaScript -->
                 </tbody>
             </table>
-            
-            <!-- Controles de paginación y búsqueda -->
-            <div class="row mt-3">
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center">
-                        <label class="me-2">Mostrar:</label>
-                        <select class="form-select form-select-sm me-2" id="itemsPorPagina" style="width: auto;">
-                            <option value="10" <?php echo $registros_por_pagina == 10 ? 'selected' : ''; ?>>10</option>
-                            <option value="25" <?php echo $registros_por_pagina == 25 ? 'selected' : ''; ?>>25</option>
-                            <option value="50" <?php echo $registros_por_pagina == 50 ? 'selected' : ''; ?>>50</option>
-                            <option value="100" <?php echo $registros_por_pagina == 100 ? 'selected' : ''; ?>>100</option>
-                        </select>
-                        <span class="text-muted">registros por página</span>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <small class="text-muted" id="infoRegistros">
-                        Mostrando <?php echo $offset + 1; ?>-<?php echo min($offset + $registros_por_pagina, $total_registros); ?> de <?php echo $total_registros; ?> registros
-                    </small>
-                </div>
+        </div>
+        
+        <!-- Paginación del lado del cliente -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <nav aria-label="Navegación de páginas">
+                    <ul class="pagination justify-content-center mb-0" id="paginacion">
+                        <!-- Se generará dinámicamente con JavaScript -->
+                    </ul>
+                </nav>
             </div>
-            
-            <!-- Paginación -->
-            <?php if ($total_paginas > 1): ?>
-            <div class="row mt-2">
-                <div class="col-12">
-                    <nav aria-label="Navegación de páginas">
-                        <ul class="pagination pagination-sm justify-content-center mb-0">
-                            <!-- Botón Anterior -->
-                            <?php if ($pagina_actual > 1): ?>
-                            <li class="page-item">
-                                <a class="page-link" href="?pagina=<?php echo $pagina_actual - 1; ?>&items=<?php echo $registros_por_pagina; ?><?php echo !empty($buscar) ? '&buscar=' . urlencode($buscar) : ''; ?>" aria-label="Anterior">
-                                    <span aria-hidden="true">&laquo;</span>
-                                </a>
-                            </li>
-                            <?php endif; ?>
-                            
-                            <!-- Números de página -->
-                            <?php
-                            $inicio = max(1, $pagina_actual - 2);
-                            $fin = min($total_paginas, $pagina_actual + 2);
-                            
-                            if ($inicio > 1): ?>
-                            <li class="page-item">
-                                <a class="page-link" href="?pagina=1&items=<?php echo $registros_por_pagina; ?><?php echo !empty($buscar) ? '&buscar=' . urlencode($buscar) : ''; ?>">1</a>
-                            </li>
-                            <?php if ($inicio > 2): ?>
-                            <li class="page-item disabled">
-                                <span class="page-link">...</span>
-                            </li>
-                            <?php endif; ?>
-                            <?php endif; ?>
-                            
-                            <?php for ($i = $inicio; $i <= $fin; $i++): ?>
-                            <li class="page-item <?php echo $i == $pagina_actual ? 'active' : ''; ?>">
-                                <a class="page-link" href="?pagina=<?php echo $i; ?>&items=<?php echo $registros_por_pagina; ?><?php echo !empty($buscar) ? '&buscar=' . urlencode($buscar) : ''; ?>"><?php echo $i; ?></a>
-                            </li>
-                            <?php endfor; ?>
-                            
-                            <?php if ($fin < $total_paginas): ?>
-                            <?php if ($fin < $total_paginas - 1): ?>
-                            <li class="page-item disabled">
-                                <span class="page-link">...</span>
-                            </li>
-                            <?php endif; ?>
-                            <li class="page-item">
-                                <a class="page-link" href="?pagina=<?php echo $total_paginas; ?>&items=<?php echo $registros_por_pagina; ?><?php echo !empty($buscar) ? '&buscar=' . urlencode($buscar) : ''; ?>"><?php echo $total_paginas; ?></a>
-                            </li>
-                            <?php endif; ?>
-                            
-                            <!-- Botón Siguiente -->
-                            <?php if ($pagina_actual < $total_paginas): ?>
-                            <li class="page-item">
-                                <a class="page-link" href="?pagina=<?php echo $pagina_actual + 1; ?>&items=<?php echo $registros_por_pagina; ?><?php echo !empty($buscar) ? '&buscar=' . urlencode($buscar) : ''; ?>" aria-label="Siguiente">
-                                    <span aria-hidden="true">&raquo;</span>
-                                </a>
-                            </li>
-                            <?php endif; ?>
-                        </ul>
-                    </nav>
-                </div>
-            </div>
-            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -249,6 +125,7 @@ if (isset($_SESSION['error'])) {
                 <div class="modal-body">
                     <input type="hidden" name="action" id="formAction" value="crear">
                     <input type="hidden" name="persona_id" id="persona_id" value="">
+                    
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -263,6 +140,7 @@ if (isset($_SESSION['error'])) {
                             </div>
                         </div>
                     </div>
+                    
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -277,6 +155,7 @@ if (isset($_SESSION['error'])) {
                             </div>
                         </div>
                     </div>
+                    
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
@@ -301,6 +180,7 @@ if (isset($_SESSION['error'])) {
                             </div>
                         </div>
                     </div>
+                    
                     <div class="row">
                         <div class="col-md-4">
                             <div class="mb-3">
@@ -310,76 +190,48 @@ if (isset($_SESSION['error'])) {
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" name="email">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
                                 <label for="rol" class="form-label">Rol</label>
                                 <select class="form-select" id="rol" name="rol">
                                     <option value="">Seleccionar rol</option>
-                                    <?php
-                                    try {
-                                        $stmt = $pdo->query("SELECT * FROM roles ORDER BY nombre_rol");
-                                        while ($rol = $stmt->fetch()) {
-                                            echo "<option value='" . $rol['id'] . "'>" . $rol['nombre_rol'] . "</option>";
-                                        }
-                                    } catch (PDOException $e) {
-                                        echo "<option value=''>Error al cargar roles</option>";
-                                    }
-                                    ?>
                                 </select>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label for="email" class="form-label">Email</label>
-                                <input type="email" class="form-control" id="email" name="email">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
                                 <label for="grupo_familiar_id" class="form-label">Grupo Familiar</label>
                                 <select class="form-select" id="grupo_familiar_id" name="grupo_familiar_id">
                                     <option value="">Seleccionar grupo familiar</option>
-                                    <?php
-                                    try {
-                                        $stmt = $pdo->query("SELECT * FROM grupos_familiares ORDER BY NOMBRE");
-                                        while ($grupo = $stmt->fetch()) {
-                                            echo "<option value='" . $grupo['ID'] . "'>" . $grupo['NOMBRE'] . "</option>";
-                                        }
-                                    } catch (PDOException $e) {
-                                        echo "<option value=''>Error al cargar grupos</option>";
-                                    }
-                                    ?>
                                 </select>
                             </div>
                         </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="imagen" class="form-label">Imagen</label>
+                                <input type="file" class="form-control" id="imagen" name="imagen" accept="image/*" onchange="mostrarVistaPrevia(this)">
+                                <div class="form-text">Formatos: JPG, PNG. Máximo: 500KB</div>
+                            </div>
+                        </div>
                     </div>
+                    
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-12">
                             <div class="mb-3">
-                                <label for="imagen" class="form-label">Imagen de la Persona</label>
-                                <input type="file" class="form-control" id="imagen" name="imagen" accept="image/*">
-                                <div class="form-text">Formatos permitidos: JPG, PNG. Tamaño máximo: 500KB</div>
+                                <label for="observaciones" class="form-label">Observaciones</label>
+                                <textarea class="form-control" id="observaciones" name="observaciones" rows="3"></textarea>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Vista Previa</label>
-                                <div class="text-center">
-                                    <img id="previewImagen" src="../assets/images/personas/default_male.svg" 
-                                         alt="Vista previa" class="img-thumbnail" 
-                                         style="width: 100px; height: 100px; object-fit: cover;">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="observaciones" class="form-label">Observaciones</label>
-                        <textarea class="form-control" id="observaciones" name="observaciones" rows="3" placeholder="Información adicional..."></textarea>
                     </div>
                 </div>
+                
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" id="btnSubmit">Guardar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
                 </div>
             </form>
         </div>
@@ -414,180 +266,322 @@ if (isset($_SESSION['error'])) {
 </div>
 
 <script>
+// Variables globales para el sistema de búsqueda y paginación
+let datosPersonas = [];
+let datosFiltrados = [];
+let paginaActual = 1;
+let itemsPorPagina = 25;
+let ordenActual = 'ORIGINAL';
+let direccionOrden = 'asc';
+
 // Función para mostrar vista previa de imagen
 function mostrarVistaPrevia(input) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            document.getElementById('previewImagen').src = e.target.result;
+            // Aquí puedes mostrar la vista previa si tienes un elemento para ello
+            console.log('Vista previa de imagen cargada');
         };
         reader.readAsDataURL(input.files[0]);
     }
 }
 
-// Evento para mostrar vista previa de imagen
-document.addEventListener('DOMContentLoaded', function() {
-    const imagenInput = document.getElementById('imagen');
-    if (imagenInput) {
-        imagenInput.addEventListener('change', function() {
-            mostrarVistaPrevia(this);
-            validarImagen(this);
+// Función para filtrar personas en tiempo real
+function filtrarPersonas() {
+    const busqueda = document.getElementById('searchInput').value.toLowerCase().trim();
+    const estadoBusqueda = document.getElementById('estadoBusqueda');
+    
+    // Mostrar indicador de búsqueda
+    if (busqueda !== '') {
+        estadoBusqueda.style.display = 'block';
+    } else {
+        estadoBusqueda.style.display = 'none';
+    }
+    
+    if (busqueda === '') {
+        // Si no hay búsqueda, mostrar todas las personas
+        datosFiltrados = [...datosPersonas];
+    } else {
+        // Filtrar por nombre, apellido, RUT, familia o grupo familiar
+        datosFiltrados = datosPersonas.filter(persona => {
+            const nombres = (persona.NOMBRES || '').toLowerCase();
+            const apellidoPaterno = (persona.APELLIDO_PATERNO || '').toLowerCase();
+            const apellidoMaterno = (persona.APELLIDO_MATERNO || '').toLowerCase();
+            const rut = (persona.RUT || '').toLowerCase();
+            const familia = (persona.FAMILIA || '').toLowerCase();
+            const grupoFamiliar = (persona.GRUPO_FAMILIAR_NOMBRE || '').toLowerCase();
+            
+            return nombres.includes(busqueda) ||
+                   apellidoPaterno.includes(busqueda) ||
+                   apellidoMaterno.includes(busqueda) ||
+                   rut.includes(busqueda) ||
+                   familia.includes(busqueda) ||
+                   grupoFamiliar.includes(busqueda);
         });
     }
     
-    // Agregar validación del formulario
-    const formPersona = document.getElementById('formPersona');
-    if (formPersona) {
-        formPersona.addEventListener('submit', function(e) {
-            if (!validarFormulario()) {
-                e.preventDefault();
+    // Reiniciar a la primera página
+    paginaActual = 1;
+    
+    // Aplicar ordenamiento y mostrar resultados
+    aplicarOrdenamientoYFiltrado();
+    
+    // Mostrar información de resultados
+    const totalResultados = datosFiltrados.length;
+    const info = document.getElementById('infoRegistros');
+    if (info) {
+        if (busqueda === '') {
+            info.textContent = `Mostrando todas las personas (${totalResultados} total)`;
+        } else {
+            info.textContent = `Búsqueda: "${busqueda}" - ${totalResultados} resultado(s) encontrado(s)`;
+        }
+    }
+}
+
+// Función para cambiar el número de items por página
+function cambiarItemsPorPagina() {
+    itemsPorPagina = parseInt(document.getElementById('itemsPorPagina').value);
+    paginaActual = 1;
+    aplicarOrdenamientoYFiltrado();
+}
+
+// Función para aplicar ordenamiento y filtrado
+function aplicarOrdenamientoYFiltrado() {
+    if (!datosPersonas || datosPersonas.length === 0) {
+        console.log('No hay datos de personas para ordenar/filtrar');
+        return;
+    }
+    
+    let datosOrdenados;
+    
+    // Si no hay ordenamiento específico, mantener el orden original
+    if (ordenActual === 'ORIGINAL') {
+        datosOrdenados = [...datosFiltrados];
+    } else {
+        // Aplicar ordenamiento personalizado
+        datosOrdenados = [...datosFiltrados].sort((a, b) => {
+            let valorA, valorB;
+            
+            switch (ordenActual) {
+                case 'FAMILIA':
+                    valorA = a.FAMILIA || '';
+                    valorB = b.FAMILIA || '';
+                    break;
+                case 'APELLIDO_PATERNO':
+                    valorA = a.APELLIDO_PATERNO || '';
+                    valorB = b.APELLIDO_PATERNO || '';
+                    break;
+                case 'NOMBRES':
+                    valorA = a.NOMBRES || '';
+                    valorB = b.NOMBRES || '';
+                    break;
+                default:
+                    valorA = a.FAMILIA || '';
+                    valorB = b.FAMILIA || '';
+            }
+            
+            if (direccionOrden === 'asc') {
+                return valorA.localeCompare(valorB);
+            } else {
+                return valorB.localeCompare(valorA);
             }
         });
     }
     
-    // Agregar evento para cambiar cantidad de registros por página
-    const itemsPorPagina = document.getElementById('itemsPorPagina');
-    if (itemsPorPagina) {
-        itemsPorPagina.addEventListener('change', function() {
-            cambiarItemsPorPagina(this.value);
-        });
-    }
-});
-
-// Función para validar imagen antes de enviar
-function validarImagen(input) {
-    const archivo = input.files[0];
-    if (!archivo) return true;
+    // Mostrar la página actual
+    mostrarPagina(datosOrdenados, paginaActual);
     
-    // Validar tipo de archivo
-    const tiposPermitidos = ['image/jpeg', 'image/jpg', 'image/png'];
-    if (!tiposPermitidos.includes(archivo.type)) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Tipo de archivo no permitido',
-            text: 'Solo se permiten archivos JPG y PNG. El archivo seleccionado es: ' + archivo.type,
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#dc3545'
-        });
-        input.value = '';
-        document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
-        return false;
-    }
-    
-    // Validar extensión
-    const extension = archivo.name.split('.').pop().toLowerCase();
-    const extensionesPermitidas = ['jpg', 'jpeg', 'png'];
-    if (!extensionesPermitidas.includes(extension)) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Extensión no permitida',
-            text: 'Solo se permiten archivos con extensión: ' + extensionesPermitidas.join(', '),
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#dc3545'
-        });
-        input.value = '';
-        document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
-        return false;
-    }
-    
-    // Validar tamaño (500KB máximo)
-    const tamanioMaximo = 500 * 1024; // 500KB en bytes
-    if (archivo.size > tamanioMaximo) {
-        const tamanioMB = (archivo.size / (1024 * 1024)).toFixed(2);
-        Swal.fire({
-            icon: 'error',
-            title: 'Archivo demasiado grande',
-            text: 'El archivo excede el tamaño máximo de 500KB. Tamaño actual: ' + tamanioMB + 'MB',
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#dc3545'
-        });
-        input.value = '';
-        document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
-        return false;
-    }
-    
-    // Validar que no esté vacío
-    if (archivo.size === 0) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Archivo vacío',
-            text: 'El archivo seleccionado está vacío. Selecciona una imagen válida.',
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#dc3545'
-        });
-        input.value = '';
-        document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
-        return false;
-    }
-    
-    return true;
+    // Generar paginación
+    generarPaginacion(datosOrdenados.length, paginaActual);
 }
 
-// Función para validar el formulario completo
-function validarFormulario() {
-    const nombres = document.getElementById('nombres').value.trim();
-    const apellidoPaterno = document.getElementById('apellido_paterno').value.trim();
-    const sexo = document.getElementById('sexo').value;
+// Función para mostrar una página específica
+function mostrarPagina(datos, pagina) {
+    const tbody = document.querySelector('#tablaPersonas tbody');
+    const inicio = (pagina - 1) * itemsPorPagina;
+    const fin = inicio + itemsPorPagina;
+    const datosPagina = datos.slice(inicio, fin);
     
-    if (!nombres) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Campo requerido',
-            text: 'El campo "Nombres" es obligatorio.',
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#ffc107'
+    let html = '';
+    
+    if (datosPagina.length === 0) {
+        html = '<tr><td colspan="10" class="text-center text-muted">No se encontraron personas</td></tr>';
+    } else {
+        datosPagina.forEach(persona => {
+            // Determinar imagen por defecto
+            let imagenSrc = '../assets/images/personas/default_male.svg';
+            if (persona.IMAGEN) {
+                const rutaImagen = '../uploads/personas/' + persona.IMAGEN;
+                if (fileExists(rutaImagen)) {
+                    imagenSrc = rutaImagen;
+                }
+            } else if (persona.SEXO === 'Femenino') {
+                imagenSrc = '../assets/images/personas/default_female.svg';
+            }
+            
+            html += `
+                <tr>
+                    <td>${persona.ID}</td>
+                    <td><img src="${imagenSrc}" alt="Foto de ${persona.NOMBRES}" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;" onerror="this.src='../assets/images/personas/default_male.svg'"></td>
+                    <td>${persona.RUT || '-'}</td>
+                    <td>${persona.NOMBRES}</td>
+                    <td>${persona.APELLIDO_PATERNO}</td>
+                    <td>${persona.APELLIDO_MATERNO || '-'}</td>
+                    <td>${persona.FAMILIA || '-'}</td>
+                    <td>${persona.ROL_NOMBRE || '-'}</td>
+                    <td>${persona.GRUPO_FAMILIAR_NOMBRE || 'Sin grupo'}</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-primary" onclick="verPersona(${persona.ID})" title="Ver datos">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-info" onclick="editarPersona(${persona.ID})" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="eliminarPersona(${persona.ID})" title="Eliminar">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
         });
-        document.getElementById('nombres').focus();
-        return false;
     }
     
-    if (!apellidoPaterno) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Campo requerido',
-            text: 'El campo "Apellido Paterno" es obligatorio.',
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#ffc107'
-        });
-        document.getElementById('apellido_paterno').focus();
-        return false;
+    tbody.innerHTML = html;
+    
+    // Actualizar información de registros
+    const total = datos.length;
+    const inicioMostrado = total > 0 ? inicio + 1 : 0;
+    const finMostrado = Math.min(fin, total);
+    const info = document.getElementById('infoRegistros');
+    if (info) {
+        info.textContent = `Mostrando ${inicioMostrado}-${finMostrado} de ${total} registros`;
+    }
+}
+
+// Función para generar la paginación
+function generarPaginacion(totalItems, paginaActual) {
+    const totalPaginas = Math.ceil(totalItems / itemsPorPagina);
+    const paginacion = document.getElementById('paginacion');
+    
+    if (totalPaginas <= 1) {
+        paginacion.innerHTML = '';
+        return;
     }
     
-    if (!sexo) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Campo requerido',
-            text: 'El campo "Sexo" es obligatorio.',
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#ffc107'
-        });
-        document.getElementById('sexo').focus();
-        return false;
+    let html = '';
+    
+    // Botón anterior
+    if (paginaActual > 1) {
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${paginaActual - 1})">‹</a></li>`;
+    } else {
+        html += `<li class="page-item disabled"><span class="page-link">‹</span></li>`;
     }
     
-    // Validar imagen si se seleccionó una
-    const imagenInput = document.getElementById('imagen');
-    if (imagenInput.files.length > 0) {
-        if (!validarImagen(imagenInput)) {
-            return false;
+    // Números de página
+    const esMobile = window.innerWidth <= 767.98;
+    let paginasAMostrar = [];
+    
+    if (esMobile) {
+        // En móviles, mostrar más páginas para ocupar toda la fila
+        if (totalPaginas <= 5) {
+            for (let i = 1; i <= totalPaginas; i++) {
+                paginasAMostrar.push(i);
+            }
+        } else {
+            const inicio = Math.max(1, paginaActual - 2);
+            const fin = Math.min(totalPaginas, paginaActual + 2);
+            
+            if (inicio > 1) {
+                paginasAMostrar.push(1);
+                if (inicio > 2) paginasAMostrar.push('...');
+            }
+            
+            for (let i = inicio; i <= fin; i++) {
+                paginasAMostrar.push(i);
+            }
+            
+            if (fin < totalPaginas) {
+                if (fin < totalPaginas - 1) paginasAMostrar.push('...');
+                paginasAMostrar.push(totalPaginas);
+            }
+        }
+    } else {
+        // En desktop, mostrar más páginas
+        for (let i = 1; i <= totalPaginas; i++) {
+            if (i === 1 || i === totalPaginas || (i >= paginaActual - 2 && i <= paginaActual + 2)) {
+                paginasAMostrar.push(i);
+            } else if (i === paginaActual - 3 || i === paginaActual + 3) {
+                paginasAMostrar.push('...');
+            }
         }
     }
     
-    return true;
+    // Generar HTML para las páginas
+    paginasAMostrar.forEach(item => {
+        if (item === '...') {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        } else if (item === paginaActual) {
+            html += `<li class="page-item active"><span class="page-link">${item}</span></li>`;
+        } else {
+            html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${item})">${item}</a></li>`;
+        }
+    });
+    
+    // Botón siguiente
+    if (paginaActual < totalPaginas) {
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${paginaActual + 1})">›</a></li>`;
+    } else {
+        html += `<li class="page-item disabled"><span class="page-link">›</span></li>`;
+    }
+    
+    paginacion.innerHTML = html;
 }
 
+// Función auxiliar para verificar si existe un archivo (simulada)
+function fileExists(path) {
+    // En un entorno real, esto se haría con una petición AJAX
+    // Por ahora, asumimos que existe si tiene extensión
+    return path.includes('.') && !path.includes('default_');
+}
+
+// Función para nueva persona
+function nuevoPersona() {
+    document.getElementById('modalTitle').textContent = 'Nueva Persona';
+    document.getElementById('formAction').value = 'crear';
+    document.getElementById('persona_id').value = '';
+    document.getElementById('formPersona').reset();
+    
+    // Cargar roles y grupos familiares para el formulario
+    fetch('personas_actions.php?action=obtener&id=0')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                llenarSelectores(data.roles, data.gruposFamiliares);
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar roles y grupos familiares:', error);
+        });
+    
+    const modal = new bootstrap.Modal(document.getElementById('modalPersona'));
+    modal.show();
+}
+
+// Función para editar persona
 function editarPersona(id) {
     // Cambiar el modal a modo edición
     document.getElementById('modalTitle').textContent = 'Editar Persona';
     document.getElementById('formAction').value = 'editar';
     document.getElementById('persona_id').value = id;
-    document.getElementById('btnSubmit').textContent = 'Actualizar';
     
     // Cargar datos de la persona
     fetch('personas_actions.php?action=obtener&id=' + id)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                // Llenar el formulario con los datos
                 document.getElementById('rut').value = data.persona.RUT || '';
                 document.getElementById('nombres').value = data.persona.NOMBRES || '';
                 document.getElementById('apellido_paterno').value = data.persona.APELLIDO_PATERNO || '';
@@ -601,75 +595,36 @@ function editarPersona(id) {
                 document.getElementById('grupo_familiar_id').value = data.persona.GRUPO_FAMILIAR_ID || '';
                 document.getElementById('observaciones').value = data.persona.OBSERVACIONES || '';
                 
-                // Mostrar imagen actual si existe
-                if (data.persona.URL_IMAGEN) {
-                    document.getElementById('previewImagen').src = data.persona.URL_IMAGEN;
-                } else {
-                    // Mostrar imagen por defecto según sexo
-                    const imagenDefault = data.persona.SEXO === 'Femenino' ? 
-                        '../assets/images/personas/default_female.svg' : 
-                        '../assets/images/personas/default_male.svg';
-                    document.getElementById('previewImagen').src = imagenDefault;
-                }
+                // Llenar los selectores de rol y grupo familiar
+                llenarSelectores(data.roles, data.gruposFamiliares);
             } else {
-                SwalUtils.showError('Error al cargar datos de la persona: ' + data.error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al cargar datos de la persona: ' + (data.error || 'Error desconocido'),
+                    confirmButtonText: 'Entendido',
+                    confirmButtonColor: '#dc3545'
+                });
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            SwalUtils.showError('Error al cargar datos de la persona');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al cargar datos de la persona',
+                confirmButtonText: 'Entendido',
+                confirmButtonColor: '#dc3545'
+            });
         });
     
     // Mostrar modal
-    new bootstrap.Modal(document.getElementById('modalPersona')).show();
+    const modal = new bootstrap.Modal(document.getElementById('modalPersona'));
+    modal.show();
 }
 
-function nuevoPersona() {
-    // Cambiar el modal a modo creación
-    document.getElementById('modalTitle').textContent = 'Nueva Persona';
-    document.getElementById('formAction').value = 'crear';
-    document.getElementById('persona_id').value = '';
-    document.getElementById('btnSubmit').textContent = 'Guardar';
-    
-    // Limpiar formulario
-    document.getElementById('formPersona').reset();
-    
-    // Resetear imagen de vista previa
-    document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
-    
-    // Mostrar modal
-    new bootstrap.Modal(document.getElementById('modalPersona')).show();
-}
-
-function eliminarPersona(id) {
-    // Verificar si SwalUtils está disponible
-    if (typeof SwalUtils !== 'undefined' && typeof SwalUtils.showDeleteConfirm === 'function') {
-        SwalUtils.showDeleteConfirm('esta persona').then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = 'personas_actions.php?action=eliminar&id=' + id;
-            }
-        });
-    } else {
-        // Fallback: usar SweetAlert2 directamente
-        Swal.fire({
-            icon: 'warning',
-            title: '¿Está seguro?',
-            text: '¿Realmente desea eliminar esta persona? Esta acción no se puede deshacer.',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = 'personas_actions.php?action=eliminar&id=' + id;
-            }
-        });
-    }
-}
-
-function verPersona(personaId) {
+// Función para ver persona
+function verPersona(id) {
     // Mostrar loading
     document.getElementById('datosPersona').innerHTML = `
         <div class="text-center">
@@ -680,13 +635,12 @@ function verPersona(personaId) {
         </div>
     `;
     
-    // Obtener datos completos de la persona desde la base de datos
-    fetch('personas_actions.php?action=obtener&id=' + personaId)
+    // Obtener datos completos de la persona
+    fetch('personas_actions.php?action=obtener&id=' + id)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const persona = data.persona;
-                mostrarDatosPersona(persona, personaId);
+                mostrarDatosPersona(data.persona, id);
             } else {
                 document.getElementById('datosPersona').innerHTML = `
                     <div class="alert alert-danger">
@@ -705,125 +659,145 @@ function verPersona(personaId) {
                 </div>
             `;
         });
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalVerPersona'));
+    modal.show();
 }
 
+// Función para eliminar persona
+function eliminarPersona(id) {
+    Swal.fire({
+        icon: 'warning',
+        title: '¿Está seguro?',
+        text: '¿Realmente desea eliminar esta persona? Esta acción no se puede deshacer.',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = 'personas_actions.php?action=eliminar&id=' + id;
+        }
+    });
+}
+
+// Función para mostrar datos de la persona en el modal de vista
 function mostrarDatosPersona(persona, personaId) {
-        // Generar el HTML con los datos completos de la persona
-        const html = `
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="text-center mb-3">
-                        <img src="${persona.URL_IMAGEN ? '../' + persona.URL_IMAGEN : '../assets/images/personas/default_male.svg'}" 
-                             alt="Foto de ${persona.NOMBRES}" 
-                             class="img-thumbnail" 
-                             style="width: 150px; height: 150px; object-fit: cover;"
-                             onerror="this.src='../assets/images/personas/default_male.svg'">
-                        <h5 class="mt-2">${persona.NOMBRES} ${persona.APELLIDO_PATERNO}</h5>
-                        <small class="text-muted">ID: ${persona.ID}</small>
-                    </div>
+    // Generar el HTML con los datos completos de la persona
+    const html = `
+        <div class="row">
+            <div class="col-md-4">
+                <div class="text-center mb-3">
+                    <img src="${persona.URL_IMAGEN ? '../' + persona.URL_IMAGEN : '../assets/images/personas/default_male.svg'}" 
+                         alt="Foto de ${persona.NOMBRES}" 
+                         class="img-thumbnail" 
+                         style="width: 150px; height: 150px; object-fit: cover;"
+                         onerror="this.src='../assets/images/personas/default_male.svg'">
+                    <h5 class="mt-2">${persona.NOMBRES} ${persona.APELLIDO_PATERNO}</h5>
+                    <small class="text-muted">ID: ${persona.ID}</small>
                 </div>
-                <div class="col-md-8">
-                    <div class="card border-0 bg-light">
-                        <div class="card-body">
-                            <h6 class="card-title text-primary">
-                                <i class="fas fa-id-card me-2"></i>Información Personal
-                            </h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-2">
-                                        <strong>RUT:</strong> ${persona.RUT || 'No especificado'}
-                                    </div>
-                                    <div class="mb-2">
-                                        <strong>Nombres:</strong> ${persona.NOMBRES}
-                                    </div>
-                                    <div class="mb-2">
-                                        <strong>Apellido Paterno:</strong> ${persona.APELLIDO_PATERNO}
-                                    </div>
-                                    <div class="mb-2">
-                                        <strong>Apellido Materno:</strong> ${persona.APELLIDO_MATERNO || 'No especificado'}
-                                    </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary">
+                            <i class="fas fa-id-card me-2"></i>Información Personal
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <strong>RUT:</strong> ${persona.RUT || 'No especificado'}
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="mb-2">
-                                        <strong>Sexo:</strong> ${persona.SEXO || 'No especificado'}
-                                    </div>
-                                    <div class="mb-2">
-                                        <strong>Fecha de Nacimiento:</strong> ${persona.FECHA_NACIMIENTO ? new Date(persona.FECHA_NACIMIENTO).toLocaleDateString('es-ES') : 'No especificada'}
-                                    </div>
-                                    <div class="mb-2">
-                                        <strong>Email:</strong> ${persona.EMAIL || 'No especificado'}
-                                    </div>
-                                    <div class="mb-2">
-                                        <strong>Teléfono:</strong> ${persona.TELEFONO || 'No especificado'}
-                                    </div>
+                                <div class="mb-2">
+                                    <strong>Nombres:</strong> ${persona.NOMBRES}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Apellido Paterno:</strong> ${persona.APELLIDO_PATERNO}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Apellido Materno:</strong> ${persona.APELLIDO_MATERNO || 'No especificado'}
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="row mt-3">
-                <div class="col-md-6">
-                    <div class="card border-0 bg-light">
-                        <div class="card-body">
-                            <h6 class="card-title text-primary">
-                                <i class="fas fa-users me-2"></i>Información Familiar
-                            </h6>
-                            <div class="mb-2">
-                                <strong>Familia:</strong> ${persona.FAMILIA || 'No especificada'}
-                            </div>
-                            <div class="mb-2">
-                                <strong>Grupo Familiar:</strong> ${persona.grupo_familiar || 'No asignado'}
-                            </div>
-                            <div class="mb-2">
-                                <strong>Rol:</strong> ${persona.rol_nombre || 'No asignado'}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card border-0 bg-light">
-                        <div class="card-body">
-                            <h6 class="card-title text-primary">
-                                <i class="fas fa-calendar me-2"></i>Información del Sistema
-                            </h6>
-                            <div class="mb-2">
-                                <strong>Fecha de Creación:</strong> ${persona.FECHA_CREACION ? new Date(persona.FECHA_CREACION).toLocaleDateString('es-ES') + ' ' + new Date(persona.FECHA_CREACION).toLocaleTimeString('es-ES') : 'No disponible'}
-                            </div>
-                            <div class="mb-2">
-                                <strong>Última Actualización:</strong> ${persona.FECHA_ACTUALIZACION ? new Date(persona.FECHA_ACTUALIZACION).toLocaleDateString('es-ES') + ' ' + new Date(persona.FECHA_ACTUALIZACION).toLocaleTimeString('es-ES') : 'No disponible'}
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <strong>Sexo:</strong> ${persona.SEXO || 'No especificado'}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Fecha de Nacimiento:</strong> ${persona.FECHA_NACIMIENTO ? new Date(persona.FECHA_NACIMIENTO).toLocaleDateString('es-ES') : 'No especificada'}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Email:</strong> ${persona.EMAIL || 'No especificado'}
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Teléfono:</strong> ${persona.TELEFONO || 'No especificado'}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            ${persona.OBSERVACIONES ? `
-            <div class="row mt-3">
-                <div class="col-12">
-                    <div class="card border-0 bg-light">
-                        <div class="card-body">
-                            <h6 class="card-title text-primary">
-                                <i class="fas fa-sticky-note me-2"></i>Observaciones
-                            </h6>
-                            <p class="mb-0">${persona.OBSERVACIONES}</p>
+        </div>
+        
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary">
+                            <i class="fas fa-users me-2"></i>Información Familiar
+                        </h6>
+                        <div class="mb-2">
+                            <strong>Familia:</strong> ${persona.FAMILIA || 'No especificada'}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Grupo Familiar:</strong> ${persona.GRUPO_FAMILIAR_NOMBRE || 'No asignado'}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Rol:</strong> ${persona.ROL_NOMBRE || 'No asignado'}
                         </div>
                     </div>
                 </div>
             </div>
-            ` : ''}
-        `;
+            <div class="col-md-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary">
+                            <i class="fas fa-calendar me-2"></i>Información del Sistema
+                        </h6>
+                        <div class="mb-2">
+                            <strong>Fecha de Creación:</strong> ${persona.FECHA_CREACION ? new Date(persona.FECHA_CREACION).toLocaleDateString('es-ES') + ' ' + new Date(persona.FECHA_CREACION).toLocaleTimeString('es-ES') : 'No disponible'}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Última Actualización:</strong> ${persona.FECHA_ACTUALIZACION ? new Date(persona.FECHA_ACTUALIZACION).toLocaleDateString('es-ES') + ' ' + new Date(persona.FECHA_ACTUALIZACION).toLocaleTimeString('es-ES') : 'No disponible'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         
-        // Mostrar los datos en el modal
-        document.getElementById('datosPersona').innerHTML = html;
-        
-        // Guardar el ID de la persona para poder editarla
-        document.getElementById('btnEditarPersona').setAttribute('data-persona-id', personaId);
-        
-        // Mostrar el modal
-        const modal = new bootstrap.Modal(document.getElementById('modalVerPersona'));
-        modal.show();
+        ${persona.OBSERVACIONES ? `
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary">
+                            <i class="fas fa-sticky-note me-2"></i>Observaciones
+                        </h6>
+                        <p class="mb-0">${persona.OBSERVACIONES}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ` : ''}
+    `;
+    
+    // Mostrar los datos en el modal
+    document.getElementById('datosPersona').innerHTML = html;
+    
+    // Guardar el ID de la persona para poder editarla
+    document.getElementById('btnEditarPersona').setAttribute('data-persona-id', personaId);
 }
 
 // Función para editar persona desde el modal de ver
@@ -840,96 +814,75 @@ function editarPersonaDesdeVer() {
     }
 }
 
-// Limpiar modal al cerrar
+// Función para llenar los selectores de rol y grupo familiar
+function llenarSelectores(roles, gruposFamiliares) {
+    // Llenar selector de roles
+    const rolSelect = document.getElementById('rol');
+    rolSelect.innerHTML = '<option value="">Seleccionar rol</option>';
+    if (roles) {
+        roles.forEach(rol => {
+            const option = document.createElement('option');
+            option.value = rol.id;
+            option.textContent = rol.nombre_rol;
+            rolSelect.appendChild(option);
+        });
+    }
+    
+    // Llenar selector de grupos familiares
+    const grupoSelect = document.getElementById('grupo_familiar_id');
+    grupoSelect.innerHTML = '<option value="">Seleccionar grupo familiar</option>';
+    if (gruposFamiliares) {
+        gruposFamiliares.forEach(grupo => {
+            const option = document.createElement('option');
+            option.value = grupo.ID;
+            option.textContent = grupo.NOMBRE;
+            grupoSelect.appendChild(option);
+        });
+    }
+}
+
+// Función para cargar datos iniciales
+function cargarDatosIniciales() {
+    try {
+        // Obtener datos del PHP
+        const personasData = <?php echo $personas_json; ?>;
+        datosPersonas = personasData;
+        datosFiltrados = [...datosPersonas];
+        
+        // Mostrar primera página
+        mostrarPagina(datosFiltrados, 1);
+        
+        // Generar paginación
+        generarPaginacion(datosFiltrados.length, 1);
+        
+        console.log('✅ Datos de personas cargados:', datosPersonas.length);
+    } catch (error) {
+        console.error('❌ Error al cargar datos iniciales:', error);
+    }
+}
+
+// Evento principal cuando se carga la página
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Módulo de personas inicializado');
+    
+    // Cargar datos iniciales
+    cargarDatosIniciales();
+    
+    // Agregar evento de redimensionamiento para regenerar paginación
+    window.addEventListener('resize', function() {
+        if (datosFiltrados && datosFiltrados.length > 0) {
+            generarPaginacion(datosFiltrados.length, paginaActual);
+        }
+    });
+    
+    // Limpiar modal al cerrar
     const modalPersona = document.getElementById('modalPersona');
     if (modalPersona) {
         modalPersona.addEventListener('hidden.bs.modal', function () {
             document.getElementById('formPersona').reset();
-            document.getElementById('previewImagen').src = '../assets/images/personas/default_male.svg';
         });
     }
 });
-
-// Inicializar cuando se carga la página
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Módulo de personas cargado correctamente');
-    
-    // Agregar evento de búsqueda en tiempo real
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.trim();
-            if (searchTerm.length > 0) {
-                // Si hay término de búsqueda, redirigir a la página de búsqueda
-                const urlParams = new URLSearchParams(window.location.search);
-                urlParams.set('buscar', searchTerm);
-                urlParams.set('pagina', '1'); // Volver a la primera página
-                window.location.href = window.location.pathname + '?' + urlParams.toString();
-            } else {
-                // Si no hay término de búsqueda, limpiar la búsqueda
-                const urlParams = new URLSearchParams(window.location.search);
-                urlParams.delete('buscar');
-                urlParams.set('pagina', '1');
-                window.location.href = window.location.pathname + '?' + urlParams.toString();
-            }
-        });
-    }
-    
-    // Actualizar información de registros
-    actualizarInfoRegistros();
-});
-
-// Función para cambiar cantidad de registros por página
-function cambiarItemsPorPagina(items) {
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set('items', items);
-    urlParams.set('pagina', '1'); // Volver a la primera página
-    window.location.href = window.location.pathname + '?' + urlParams.toString();
-}
-
-// Función para limpiar búsqueda
-function limpiarBusqueda() {
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.delete('buscar');
-    urlParams.set('pagina', '1');
-    window.location.href = window.location.pathname + '?' + urlParams.toString();
-}
-
-// Función para filtrar la tabla
-function filtrarTabla(searchTerm) {
-    const filas = document.querySelectorAll('#tablaPersonas tbody tr');
-    let registrosVisibles = 0;
-    
-    filas.forEach(fila => {
-        const celdas = fila.querySelectorAll('td');
-        let textoFila = '';
-        
-        // Concatenar texto de todas las celdas relevantes (excluyendo imagen y acciones)
-        for (let i = 0; i < celdas.length - 2; i++) { // -2 para excluir imagen y acciones
-            if (i !== 1) { // Excluir columna de imagen
-                textoFila += celdas[i].textContent.toLowerCase() + ' ';
-            }
-        }
-        
-        if (textoFila.includes(searchTerm)) {
-            fila.style.display = '';
-            registrosVisibles++;
-        } else {
-            fila.style.display = 'none';
-        }
-    });
-    
-    // Actualizar información de registros filtrados
-    document.getElementById('infoRegistros').textContent = `Mostrando ${registrosVisibles} de ${filas.length} registros (filtrados)`;
-}
-
-// Función para actualizar información de registros
-function actualizarInfoRegistros() {
-    const filas = document.querySelectorAll('#tablaPersonas tbody tr');
-    const total = filas.length;
-    document.getElementById('infoRegistros').textContent = `Mostrando 1-${total} de ${total} registros`;
-}
 
 // Mostrar alertas de sesión con SweetAlert2
 <?php if ($successMessage): ?>

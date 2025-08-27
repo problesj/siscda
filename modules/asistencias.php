@@ -1,5 +1,5 @@
 <?php include '../includes/header.php'; ?>
-<link rel="stylesheet" href="../assets/css/asistencias.css">
+<link rel="stylesheet" href="../assets/css/asistencias.css?v=<?php echo time(); ?>">
 <style>
 /* Sobrescribir variables CSS de Bootstrap para la tabla de asistencias */
 .table-asistencias {
@@ -96,6 +96,96 @@ html body .table-responsive .table-asistencias tbody tr[data-debug*="Color: #fff
 .table-asistencias tbody tr[data-debug*="Color: #d1ecf1"]:active {
     background-color: #d1ecf1 !important;
     --bs-table-bg: #d1ecf1 !important;
+}
+
+/* Estilos de paginación con máxima prioridad */
+.pagination .page-link {
+    min-height: 64px !important;
+    font-size: 1.25rem !important;
+    padding: 1rem 0.75rem !important;
+    border: 3px solid #dee2e6 !important;
+    border-radius: 0.75rem !important;
+    background-color: #ffffff !important;
+    color: #495057 !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+.pagination .page-link:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+    border-color: #007bff !important;
+    color: #007bff !important;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #007bff !important;
+    border-color: #007bff !important;
+    color: white !important;
+    transform: scale(1.05) !important;
+}
+
+.pagination .page-item.disabled .page-link {
+    background-color: #f8f9fa !important;
+    border-color: #dee2e6 !important;
+    color: #6c757d !important;
+    opacity: 0.6 !important;
+}
+
+/* Estilos específicos para móviles */
+@media (max-width: 767.98px) {
+    .pagination {
+        justify-content: space-between !important;
+        flex-wrap: nowrap !important;
+        gap: 0.75rem !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .pagination .page-item {
+        flex: 1 !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .pagination .page-link {
+        min-height: 64px !important;
+        font-size: 1.25rem !important;
+        padding: 1rem 0.75rem !important;
+        border: 3px solid #dee2e6 !important;
+        border-radius: 0.75rem !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    }
+    
+    .pagination .page-item:first-child .page-link,
+    .pagination .page-item:last-child .page-link {
+        font-size: 1.5rem !important;
+        font-weight: 700 !important;
+        min-height: 64px !important;
+        padding: 1rem 0.5rem !important;
+        background-color: #f8f9fa !important;
+        border-color: #dee2e6 !important;
+        color: #495057 !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .pagination .page-link {
+        min-height: 72px !important;
+        font-size: 1.4rem !important;
+        padding: 1.25rem 0.5rem !important;
+    }
+    
+    .pagination .page-item:first-child .page-link,
+    .pagination .page-item:last-child .page-link {
+        min-height: 72px !important;
+        font-size: 1.8rem !important;
+    }
+    
+    .pagination {
+        gap: 0.5rem !important;
+    }
 }
 
 .table-asistencias tbody tr[data-debug*="Color: #fff3cd"]:hover,
@@ -679,12 +769,18 @@ if (isset($_SESSION['error'])) {
                     }
                 });
                 
-                // Limpiar sugerencias cuando se cierre el modal
-                document.getElementById('modalAgregarPersona').addEventListener('hidden.bs.modal', function() {
-                    ocultarSugerencias('nombres');
-                    ocultarSugerencias('apellidos');
-                    document.getElementById('formAgregarPersona').reset();
-                });
+                // Limpiar sugerencias cuando se cierre el modal (solo si existe)
+                const modalAgregarPersona = document.getElementById('modalAgregarPersona');
+                if (modalAgregarPersona) {
+                    modalAgregarPersona.addEventListener('hidden.bs.modal', function() {
+                        ocultarSugerencias('nombres');
+                        ocultarSugerencias('apellidos');
+                        const form = document.getElementById('formAgregarPersona');
+                        if (form) {
+                            form.reset();
+                        }
+                    });
+                }
                 
 
                 
@@ -698,9 +794,17 @@ if (isset($_SESSION['error'])) {
                             return;
                         }
                         
+                        // Verificar que personas sea un array válido
+                        if (!Array.isArray(personas) || personas.length === 0) {
+                            console.warn('No hay personas para consultar asistencias');
+                            resolve({});
+                            return;
+                        }
+                        
                         // Extraer IDs de personas
-                        const idsPersonas = personas.map(p => p.id);
+                        const idsPersonas = personas.map(p => p.id).filter(id => id != null);
                         if (idsPersonas.length === 0) {
+                            console.warn('No hay IDs válidos de personas');
                             resolve({});
                             return;
                         }
@@ -717,8 +821,26 @@ if (isset($_SESSION['error'])) {
                             method: 'POST',
                             body: formData
                         })
-                        .then(response => response.text())
+                        .then(response => {
+                            console.log('Respuesta del servidor:', response.status, response.statusText);
+                            
+                            if (!response.ok) {
+                                if (response.status === 500) {
+                                    throw new Error('Error interno del servidor (500). Verifique los logs del servidor.');
+                                } else {
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                            }
+                            return response.text();
+                        })
                         .then(data => {
+                            // Verificar que la respuesta no esté vacía
+                            if (!data || data.trim() === '') {
+                                console.error('Respuesta vacía del servidor');
+                                resolve({});
+                                return;
+                            }
+                            
                             try {
                                 const resultado = JSON.parse(data);
                                 if (resultado.success) {
@@ -730,6 +852,7 @@ if (isset($_SESSION['error'])) {
                                 }
                             } catch (e) {
                                 console.error('Error al parsear respuesta de asistencias:', e);
+                                console.error('Respuesta del servidor:', data);
                                 resolve({});
                             }
                         })
@@ -782,12 +905,29 @@ if (isset($_SESSION['error'])) {
                     })
                     .then(response => {
                         console.log('Respuesta recibida:', response);
-                        console.log('Status:', response.status);
+                        console.log('Status:', response.status, response.statusText);
                         console.log('Headers:', response.headers);
+                        
+                        if (!response.ok) {
+                            if (response.status === 500) {
+                                throw new Error('Error interno del servidor (500). Verifique los logs del servidor.');
+                            } else {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                        }
+                        
                         return response.text();
                     })
                     .then(data => {
                         console.log('Datos de respuesta:', data);
+                        
+                        // Verificar que la respuesta no esté vacía
+                        if (!data || data.trim() === '') {
+                            console.error('Respuesta vacía del servidor al guardar asistencia');
+                            checkbox.checked = !asistio;
+                            checkbox.classList.remove('guardando');
+                            return;
+                        }
                         
                         try {
                             const resultado = JSON.parse(data);
@@ -947,6 +1087,8 @@ if (isset($_SESSION['error'])) {
                     }
                 }
                 
+
+                
                 // Inicializar guardado automático cuando se cargue la página
                 document.addEventListener('DOMContentLoaded', function() {
                     setTimeout(function() {
@@ -965,9 +1107,9 @@ if (isset($_SESSION['error'])) {
                             <label class="me-2 d-inline d-sm-none">Items:</label>
                             <select class="form-select form-select-sm me-2" id="itemsPorPagina" onchange="cambiarItemsPorPagina()" style="width: auto;">
                                 <option value="10">10</option>
-                                <option value="25" selected>25</option>
+                                <option value="25">25</option>
                                 <option value="50">50</option>
-                                <option value="100">100</option>
+                                <option value="100" selected>100</option>
                             </select>
                             <span class="text-muted d-none d-md-inline">registros por página</span>
                         </div>
@@ -1026,7 +1168,7 @@ if (isset($_SESSION['error'])) {
                             <th class="d-none d-md-table-cell">Tipo</th>
                             <th class="d-none d-md-table-cell">Descripción</th>
                             <th class="d-none d-md-table-cell">Asistentes</th>
-                            <th class="d-table-cell d-md-none">Culto</th>
+                            <th class="culto-info-mobile">Información del Culto</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -1050,12 +1192,15 @@ if (isset($_SESSION['error'])) {
                                 echo "<td class='d-none d-md-table-cell'>" . $row['asistentes'] . "</td>";
                                 
                                 // Columna móvil que combina la información del culto
-                                echo "<td class='d-table-cell d-md-none'>
-                                        <div class='fw-bold'>" . $row['TIPO_CULTO'] . "</div>
-                                        <div class='small text-muted'>
+                                echo "<td class='culto-info-mobile'>
+                                        <div class='culto-tipo'>" . $row['TIPO_CULTO'] . "</div>
+                                        <div class='culto-fecha'>
                                             <i class='fas fa-calendar me-1'></i>" . date('d/m/Y', strtotime($row['FECHA'])) . "
                                         </div>
-                                        <div class='small text-muted'>
+                                        <div class='culto-hora'>
+                                            <i class='fas fa-clock me-1'></i>" . ($row['FECHA_CREACION'] ? date('H:i', strtotime($row['FECHA_CREACION'])) : '--') . "
+                                        </div>
+                                        <div class='culto-asistentes'>
                                             <i class='fas fa-users me-1'></i>" . $row['asistentes'] . " asistentes
                                         </div>
                                       </td>";
@@ -1063,10 +1208,10 @@ if (isset($_SESSION['error'])) {
                                 // Botones de acción
                                 echo "<td>
                                         <div class='d-grid gap-1 d-md-block'>
-                                            <a href='?culto_id=" . $row['ID'] . "' class='btn btn-sm btn-success w-100 w-md-auto'>
+                                            <a href='?culto_id=" . $row['ID'] . "' class='btn btn-sm btn-success w-100 w-md-auto' title='Tomar Asistencia'>
                                                 <i class='fas fa-clipboard-check'></i> <span class='d-none d-sm-inline'>Tomar Asistencia</span>
                                             </a>
-                                            <a href='asistencias_ver.php?culto_id=" . $row['ID'] . "' class='btn btn-sm btn-info w-100 w-md-auto mt-1 mt-md-0'>
+                                            <a href='asistencias_ver.php?culto_id=" . $row['ID'] . "' class='btn btn-sm btn-info w-100 w-md-auto mt-1 mt-md-0' title='Ver Asistencias'>
                                                 <i class='fas fa-eye'></i> <span class='d-none d-sm-inline'>Ver</span>
                                             </a>
                                         </div>
@@ -1253,7 +1398,7 @@ if (isset($_SESSION['error'])) {
 <script>
 // Variables para paginación y ordenamiento
 let paginaActual = 1;
-let itemsPorPagina = 25;
+let itemsPorPagina = 100;
 let ordenActual = 'ORIGINAL';
 let direccionOrden = 'asc';
 let datosPersonas = [];
@@ -1343,6 +1488,12 @@ function cambiarItemsPorPagina() {
 
 // Función para aplicar ordenamiento y filtrado
 function aplicarOrdenamientoYFiltrado() {
+    // Solo ejecutar si estamos en la vista de tomar asistencia
+    if (!datosPersonas || datosPersonas.length === 0) {
+        console.log('No hay datos de personas para ordenar/filtrar');
+        return;
+    }
+    
     let datosOrdenados;
     
     // Si no hay ordenamiento específico, mantener el orden original de la base de datos
@@ -1492,6 +1643,10 @@ function aplicarEstilosEncabezado() {
 
 // Función para generar la paginación
 function generarPaginacion(totalItems, paginaActual) {
+    console.log('🔧 Generando paginación con estilos mejorados...');
+    console.log('📱 Ancho de ventana:', window.innerWidth, 'px');
+    console.log('📊 Total de items:', totalItems, 'Items por página:', itemsPorPagina);
+    
     const totalPaginas = Math.ceil(totalItems / itemsPorPagina);
     const paginacion = document.getElementById('paginacion');
     
@@ -1504,26 +1659,90 @@ function generarPaginacion(totalItems, paginaActual) {
     
     // Botón anterior
     if (paginaActual > 1) {
-        html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${paginaActual - 1})">Anterior</a></li>`;
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${paginaActual - 1})">‹</a></li>`;
+    } else {
+        html += `<li class="page-item disabled"><span class="page-link">‹</span></li>`;
     }
     
-    // Números de página
-    for (let i = 1; i <= totalPaginas; i++) {
-        if (i === paginaActual) {
-            html += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
-        } else if (i === 1 || i === totalPaginas || (i >= paginaActual - 2 && i <= paginaActual + 2)) {
-            html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${i})">${i}</a></li>`;
-        } else if (i === paginaActual - 3 || i === paginaActual + 3) {
-            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+    // Números de página - versión más compacta para móviles
+    const esMobile = window.innerWidth <= 767.98;
+    let paginasAMostrar = [];
+    
+    if (esMobile) {
+        // En móviles, mostrar más páginas para ocupar toda la fila (como en la imagen)
+        if (totalPaginas <= 5) {
+            // Si hay 5 o menos páginas, mostrar todas
+            for (let i = 1; i <= totalPaginas; i++) {
+                paginasAMostrar.push(i);
+            }
+        } else {
+            // Mostrar página actual + 2 antes y 2 después, más primera y última
+            const inicio = Math.max(1, paginaActual - 2);
+            const fin = Math.min(totalPaginas, paginaActual + 2);
+            
+            // Siempre incluir primera página
+            if (inicio > 1) {
+                paginasAMostrar.push(1);
+                if (inicio > 2) paginasAMostrar.push('...');
+            }
+            
+            for (let i = inicio; i <= fin; i++) {
+                paginasAMostrar.push(i);
+            }
+            
+            // Incluir última página si no está ya incluida
+            if (fin < totalPaginas) {
+                if (fin < totalPaginas - 1) paginasAMostrar.push('...');
+                paginasAMostrar.push(totalPaginas);
+            }
+        }
+    } else {
+        // En desktop, mostrar más páginas
+        for (let i = 1; i <= totalPaginas; i++) {
+            if (i === 1 || i === totalPaginas || (i >= paginaActual - 2 && i <= paginaActual + 2)) {
+                paginasAMostrar.push(i);
+            } else if (i === paginaActual - 3 || i === paginaActual + 3) {
+                paginasAMostrar.push('...');
+            }
         }
     }
     
+    // Generar HTML para las páginas
+    paginasAMostrar.forEach(item => {
+        if (item === '...') {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        } else if (item === paginaActual) {
+            html += `<li class="page-item active"><span class="page-link">${item}</span></li>`;
+        } else {
+            html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${item})">${item}</a></li>`;
+        }
+    });
+    
     // Botón siguiente
     if (paginaActual < totalPaginas) {
-        html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${paginaActual + 1})">Siguiente</a></li>`;
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${paginaActual + 1})">›</a></li>`;
+    } else {
+        html += `<li class="page-item disabled"><span class="page-link">›</span></li>`;
     }
     
     paginacion.innerHTML = html;
+    
+    // Verificar que los estilos se hayan aplicado
+    console.log('✅ Paginación generada con HTML:', html);
+    console.log('🎨 Verificando estilos aplicados...');
+    
+    // Verificar estilos de los botones
+    const botones = paginacion.querySelectorAll('.page-link');
+    botones.forEach((boton, index) => {
+        const estilos = window.getComputedStyle(boton);
+        console.log(`🔘 Botón ${index + 1}:`, {
+            'min-height': estilos.minHeight,
+            'font-size': estilos.fontSize,
+            'padding': estilos.padding,
+            'border': estilos.border,
+            'border-radius': estilos.borderRadius
+        });
+    });
 }
 
 // Función para actualizar la información de registros
@@ -1536,43 +1755,72 @@ function actualizarInfoRegistros(total, inicio, fin) {
 
 // Función para cargar datos iniciales
 function cargarDatosIniciales() {
-    const filas = document.querySelectorAll('tbody tr');
-    datosPersonas = [];
+    // Verificar si estamos en la vista de tomar asistencia o en la lista de cultos
+    const tablaAsistencias = document.querySelector('.table-asistencias');
+    const tablaCultos = document.querySelector('table:not(.table-asistencias)');
     
-    // Mantener el orden original de las filas tal como aparecen en el HTML
-    filas.forEach((fila, index) => {
-        const celdas = fila.querySelectorAll('td');
-        if (celdas.length >= 5) {
-            const checkbox = celdas[0].querySelector('input[type="checkbox"]');
-            const nombres = celdas[1].textContent.trim();
-            const apellidoPaterno = celdas[2].textContent.trim();
-            const familia = celdas[3].textContent.trim();
-            const grupoFamiliar = celdas[4].textContent.trim();
-            
-            // Solo agregar si hay datos válidos
-            if (nombres && apellidoPaterno) {
-                datosPersonas.push({
-                    id: checkbox.value,
-                    nombres: nombres,
-                    apellidoPaterno: apellidoPaterno,
-                    familia: familia === '-' ? '' : familia,
-                    grupoFamiliar: grupoFamiliar === '' ? '' : grupoFamiliar,
-                    asistio: checkbox.checked,
-                    ordenOriginal: index // Mantener el orden original
-                });
+    // Solo ejecutar si estamos en la vista de tomar asistencia (con checkboxes)
+    if (tablaAsistencias) {
+        const filas = tablaAsistencias.querySelectorAll('tbody tr');
+        datosPersonas = [];
+        
+        // Mantener el orden original de las filas tal como aparecen en el HTML
+        filas.forEach((fila, index) => {
+            const celdas = fila.querySelectorAll('td');
+            if (celdas.length >= 5) {
+                const checkbox = celdas[0].querySelector('input[type="checkbox"]');
+                if (checkbox) { // Verificar que el checkbox existe
+                    const nombres = celdas[1].textContent.trim();
+                    const apellidoPaterno = celdas[2].textContent.trim();
+                    const familia = celdas[3].textContent.trim();
+                    const grupoFamiliar = celdas[4].textContent.trim();
+                    
+                    // Solo agregar si hay datos válidos
+                    if (nombres && apellidoPaterno) {
+                        datosPersonas.push({
+                            id: checkbox.value,
+                            nombres: nombres,
+                            apellidoPaterno: apellidoPaterno,
+                            familia: familia === '-' ? '' : familia,
+                            grupoFamiliar: grupoFamiliar === '' ? '' : grupoFamiliar,
+                            asistio: checkbox.checked,
+                            ordenOriginal: index // Mantener el orden original
+                        });
+                    }
+                }
             }
-        }
-    });
-    
-    console.log('Datos cargados:', datosPersonas.length, 'personas');
-    datosFiltrados = [...datosPersonas];
-    aplicarOrdenamientoYFiltrado();
+        });
+        
+        console.log('Datos cargados:', datosPersonas.length, 'personas');
+        datosFiltrados = [...datosPersonas];
+        aplicarOrdenamientoYFiltrado();
+    } else if (tablaCultos) {
+        console.log('Vista de lista de cultos - no se cargan datos de personas');
+        // En la vista de cultos, no necesitamos cargar datos de personas
+        datosPersonas = [];
+        datosFiltrados = [];
+    } else {
+        console.log('No se encontró tabla de asistencias ni de cultos');
+    }
 }
 
 // Inicializar cuando se carga la página
 document.addEventListener('DOMContentLoaded', function() {
     cargarDatosIniciales();
-    actualizarBotonesOrdenamiento();
+    
+    // Solo actualizar botones de ordenamiento si estamos en la vista de tomar asistencia
+    const tablaAsistencias = document.querySelector('.table-asistencias');
+    if (tablaAsistencias) {
+        actualizarBotonesOrdenamiento();
+    }
+    
+    // Listener para cambios de tamaño de ventana (para paginación responsive)
+    window.addEventListener('resize', function() {
+        if (datosFiltrados && datosFiltrados.length > 0) {
+            // Regenerar paginación cuando cambie el tamaño de la ventana
+            generarPaginacion(datosFiltrados.length, paginaActual);
+        }
+    });
 });
 
 

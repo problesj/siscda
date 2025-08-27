@@ -1,245 +1,239 @@
 <?php
-require_once '../session_config.php';
-session_start();
-require_once '../config.php';
+// Archivo de acciones para el módulo de personas
+require_once dirname(__DIR__) . '/session_config.php';
+require_once dirname(__DIR__) . '/config.php';
+require_once dirname(__DIR__) . '/includes/auth_functions.php';
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $action = $_POST['action'];
+// Verificar autenticación
+verificarAutenticacion();
+
+// Obtener la acción solicitada
+$action = $_REQUEST['action'] ?? '';
+
+try {
+    $pdo = conectarDB();
     
-    try {
-        $pdo = conectarDB();
-        
-        if ($action == 'crear') {
-            $rut = limpiarDatos($_POST['rut']);
-            $nombres = limpiarDatos($_POST['nombres']);
-            $apellido_paterno = limpiarDatos($_POST['apellido_paterno']);
-            $apellido_materno = limpiarDatos($_POST['apellido_materno']);
-            $sexo = limpiarDatos($_POST['sexo']);
-            $fecha_nacimiento = !empty($_POST['fecha_nacimiento']) ? $_POST['fecha_nacimiento'] : null;
-            $familia = limpiarDatos($_POST['familia']);
-            $rol = !empty($_POST['rol']) ? $_POST['rol'] : null;
-            $email = limpiarDatos($_POST['email']);
-            $telefono = limpiarDatos($_POST['telefono']);
-            $observaciones = limpiarDatos($_POST['observaciones']);
-            $grupo_familiar_id = !empty($_POST['grupo_familiar_id']) ? $_POST['grupo_familiar_id'] : null;
+    switch ($action) {
+        case 'obtener':
+            // Obtener datos de una persona específica o solo roles/grupos si ID es 0
+            $id = $_GET['id'] ?? 0;
             
-            // Procesar imagen si se subió una
-            $url_imagen = null;
-            $error_imagen = null;
+            // Obtener roles disponibles para el formulario
+            $stmtRoles = $pdo->query("SELECT id, nombre_rol FROM roles ORDER BY nombre_rol");
+            $roles = $stmtRoles->fetchAll(PDO::FETCH_ASSOC);
             
-            if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] == 0) {
-                $resultado_imagen = procesarImagen($_FILES['imagen']);
-                if (is_array($resultado_imagen) && isset($resultado_imagen['error'])) {
-                    $error_imagen = $resultado_imagen['error'];
-                } else {
-                    $url_imagen = $resultado_imagen;
-                }
-            } elseif (isset($_FILES['imagen']) && $_FILES['imagen']['error'] != 0) {
-                $error_imagen = obtenerMensajeErrorArchivo($_FILES['imagen']['error']);
+            // Obtener grupos familiares disponibles
+            $stmtGrupos = $pdo->query("SELECT ID, NOMBRE FROM grupos_familiares ORDER BY NOMBRE");
+            $gruposFamiliares = $stmtGrupos->fetchAll(PDO::FETCH_ASSOC);
+            
+            if ($id == 0) {
+                // Solo retornar roles y grupos familiares para formularios nuevos
+                echo json_encode([
+                    'success' => true,
+                    'persona' => null,
+                    'roles' => $roles,
+                    'gruposFamiliares' => $gruposFamiliares
+                ]);
+                break;
             }
             
-            // Si hay error en la imagen, no continuar
-            if ($error_imagen) {
-                $_SESSION['error'] = $error_imagen;
-                header('Location: personas.php');
-                exit();
+            $sql = "SELECT p.*, gf.NOMBRE as GRUPO_FAMILIAR_NOMBRE, r.nombre_rol as ROL_NOMBRE 
+                    FROM personas p 
+                    LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID 
+                    LEFT JOIN roles r ON p.ROL = r.id 
+                    WHERE p.ID = ?";
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$id]);
+            $persona = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$persona) {
+                throw new Exception('Persona no encontrada');
             }
             
-            $stmt = $pdo->prepare("INSERT INTO personas (RUT, NOMBRES, APELLIDO_PATERNO, APELLIDO_MATERNO, SEXO, FECHA_NACIMIENTO, FAMILIA, ROL, EMAIL, TELEFONO, OBSERVACIONES, GRUPO_FAMILIAR_ID, URL_IMAGEN, FECHA_CREACION) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$rut, $nombres, $apellido_paterno, $apellido_materno, $sexo, $fecha_nacimiento, $familia, $rol, $email, $telefono, $observaciones, $grupo_familiar_id, $url_imagen]);
+            echo json_encode([
+                'success' => true,
+                'persona' => $persona,
+                'roles' => $roles,
+                'gruposFamiliares' => $gruposFamiliares
+            ]);
+            break;
             
-            $_SESSION['success'] = 'Persona creada exitosamente';
-        } elseif ($action == 'editar') {
-            $persona_id = $_POST['persona_id'];
-            $rut = limpiarDatos($_POST['rut']);
-            $nombres = limpiarDatos($_POST['nombres']);
-            $apellido_paterno = limpiarDatos($_POST['apellido_paterno']);
-            $apellido_materno = limpiarDatos($_POST['apellido_materno']);
-            $sexo = limpiarDatos($_POST['sexo']);
-            $fecha_nacimiento = !empty($_POST['fecha_nacimiento']) ? $_POST['fecha_nacimiento'] : null;
-            $familia = limpiarDatos($_POST['familia']);
-            $rol = !empty($_POST['rol']) ? $_POST['rol'] : null;
-            $email = limpiarDatos($_POST['email']);
-            $telefono = limpiarDatos($_POST['telefono']);
-            $observaciones = limpiarDatos($_POST['observaciones']);
-            $grupo_familiar_id = !empty($_POST['grupo_familiar_id']) ? $_POST['grupo_familiar_id'] : null;
+        case 'crear':
+            // Crear nueva persona
+            $datos = [
+                'RUT' => $_POST['rut'] ?? null,
+                'NOMBRES' => $_POST['nombres'] ?? '',
+                'APELLIDO_PATERNO' => $_POST['apellido_paterno'] ?? '',
+                'APELLIDO_MATERNO' => $_POST['apellido_materno'] ?? null,
+                'SEXO' => $_POST['sexo'] ?? null,
+                'FECHA_NACIMIENTO' => $_POST['fecha_nacimiento'] ?: null,
+                'TELEFONO' => $_POST['telefono'] ?? null,
+                'FAMILIA' => $_POST['familia'] ?? null,
+                'EMAIL' => $_POST['email'] ?? null,
+                'OBSERVACIONES' => $_POST['observaciones'] ?? null,
+                'FECHA_CREACION' => date('Y-m-d H:i:s')
+            ];
             
-            // Obtener imagen actual
-            $stmt = $pdo->prepare("SELECT URL_IMAGEN FROM personas WHERE ID = ?");
-            $stmt->execute([$persona_id]);
-            $persona_actual = $stmt->fetch();
-            $url_imagen = $persona_actual['URL_IMAGEN'];
-            
-            // Procesar nueva imagen si se subió una
-            if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] == 0) {
-                $resultado_imagen = procesarImagen($_FILES['imagen']);
-                if (is_array($resultado_imagen) && isset($resultado_imagen['error'])) {
-                    $_SESSION['error'] = $resultado_imagen['error'];
-                    header('Location: personas.php');
-                    exit();
-                }
-                
-                // Eliminar imagen anterior si existe
-                if ($url_imagen && file_exists('..' . $url_imagen)) {
-                    unlink('..' . $url_imagen);
-                }
-                $url_imagen = $resultado_imagen;
-            } elseif (isset($_FILES['imagen']) && $_FILES['imagen']['error'] != 0) {
-                $_SESSION['error'] = obtenerMensajeErrorArchivo($_FILES['imagen']['error']);
-                header('Location: personas.php');
-                exit();
+            // Validar campos obligatorios
+            if (empty($datos['NOMBRES']) || empty($datos['APELLIDO_PATERNO'])) {
+                throw new Exception('Los campos Nombres y Apellido Paterno son obligatorios');
             }
             
-            $stmt = $pdo->prepare("UPDATE personas SET RUT = ?, NOMBRES = ?, APELLIDO_PATERNO = ?, APELLIDO_MATERNO = ?, SEXO = ?, FECHA_NACIMIENTO = ?, FAMILIA = ?, ROL = ?, EMAIL = ?, TELEFONO = ?, OBSERVACIONES = ?, GRUPO_FAMILIAR_ID = ?, URL_IMAGEN = ?, FECHA_ACTUALIZACION = NOW() WHERE ID = ?");
-            $stmt->execute([$rut, $nombres, $apellido_paterno, $apellido_materno, $sexo, $fecha_nacimiento, $familia, $rol, $email, $telefono, $observaciones, $grupo_familiar_id, $url_imagen, $persona_id]);
+            // Procesar imagen si se subió
+            if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
+                $imagen = procesarImagen($_FILES['imagen']);
+                if ($imagen) {
+                    $datos['URL_IMAGEN'] = $imagen;
+                }
+            }
             
-            $_SESSION['success'] = 'Persona actualizada exitosamente';
-        }
-        
-    } catch (PDOException $e) {
-        $_SESSION['error'] = 'Error: ' . $e->getMessage();
-    }
-} elseif ($_SERVER['REQUEST_METHOD'] == 'GET') {
-    $action = $_GET['action'];
-    
-    if ($action == 'eliminar') {
-        $id = $_GET['id'];
-        
-        try {
-            $pdo = conectarDB();
+            // Insertar en la base de datos
+            $campos = implode(', ', array_keys($datos));
+            $placeholders = ':' . implode(', :', array_keys($datos));
             
-            // Obtener imagen antes de eliminar
-            $stmt = $pdo->prepare("SELECT URL_IMAGEN FROM personas WHERE ID = ?");
+            $sql = "INSERT INTO personas ($campos) VALUES ($placeholders)";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($datos);
+            
+            $nuevoId = $pdo->lastInsertId();
+            
+            $_SESSION['success'] = "Persona creada exitosamente con ID: $nuevoId";
+            header('Location: personas.php');
+            exit();
+            break;
+            
+        case 'editar':
+            // Editar persona existente
+            $id = $_POST['persona_id'] ?? 0;
+            if (!$id) {
+                throw new Exception('ID de persona no proporcionado');
+            }
+            
+            $datos = [
+                'RUT' => $_POST['rut'] ?? null,
+                'NOMBRES' => $_POST['nombres'] ?? '',
+                'APELLIDO_PATERNO' => $_POST['apellido_paterno'] ?? '',
+                'APELLIDO_MATERNO' => $_POST['apellido_materno'] ?? null,
+                'SEXO' => $_POST['sexo'] ?? null,
+                'FECHA_NACIMIENTO' => $_POST['fecha_nacimiento'] ?: null,
+                'TELEFONO' => $_POST['telefono'] ?? null,
+                'FAMILIA' => $_POST['familia'] ?? null,
+                'EMAIL' => $_POST['email'] ?? null,
+                'OBSERVACIONES' => $_POST['observaciones'] ?? null,
+                'FECHA_ACTUALIZACION' => date('Y-m-d H:i:s')
+            ];
+            
+            // Validar campos obligatorios
+            if (empty($datos['NOMBRES']) || empty($datos['APELLIDO_PATERNO'])) {
+                throw new Exception('Los campos Nombres y Apellido Paterno son obligatorios');
+            }
+            
+            // Procesar imagen si se subió
+            if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
+                $imagen = procesarImagen($_FILES['imagen']);
+                if ($imagen) {
+                    $datos['URL_IMAGEN'] = $imagen;
+                }
+            }
+            
+            // Actualizar en la base de datos
+            $campos = [];
+            foreach ($datos as $campo => $valor) {
+                if ($valor !== null) {
+                    $campos[] = "$campo = :$campo";
+                }
+            }
+            
+            $sql = "UPDATE personas SET " . implode(', ', $campos) . " WHERE ID = :id";
+            $datos['id'] = $id;
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($datos);
+            
+            $_SESSION['success'] = "Persona actualizada exitosamente";
+            header('Location: personas.php');
+            exit();
+            break;
+            
+        case 'eliminar':
+            // Eliminar persona
+            $id = $_GET['id'] ?? 0;
+            if (!$id) {
+                throw new Exception('ID de persona no proporcionado');
+            }
+            
+            // Verificar si la persona existe
+            $stmt = $pdo->prepare("SELECT ID, NOMBRES, APELLIDO_PATERNO FROM personas WHERE ID = ?");
             $stmt->execute([$id]);
             $persona = $stmt->fetch();
             
-            // Eliminar imagen si existe
-            if ($persona && $persona['URL_IMAGEN'] && file_exists('..' . $persona['URL_IMAGEN'])) {
-                unlink('..' . $persona['URL_IMAGEN']);
+            if (!$persona) {
+                throw new Exception('Persona no encontrada');
             }
             
-            // Eliminar persona
+            // Eliminar imagen si existe
+            $stmt = $pdo->prepare("SELECT URL_IMAGEN FROM personas WHERE ID = ?");
+            $stmt->execute([$id]);
+            $imagen = $stmt->fetchColumn();
+            
+            if ($imagen && file_exists(dirname(__DIR__) . '/' . $imagen)) {
+                unlink(dirname(__DIR__) . '/' . $imagen);
+            }
+            
+            // Eliminar de la base de datos
             $stmt = $pdo->prepare("DELETE FROM personas WHERE ID = ?");
             $stmt->execute([$id]);
             
-            $_SESSION['success'] = 'Persona eliminada exitosamente';
-        } catch (PDOException $e) {
-            $_SESSION['error'] = 'Error: ' . $e->getMessage();
-        }
-    } elseif ($action == 'obtener') {
-        $id = $_GET['id'];
-        
-        try {
-            $pdo = conectarDB();
-            $stmt = $pdo->prepare("SELECT p.ID as id, p.RUT, p.NOMBRES, p.APELLIDO_PATERNO, p.APELLIDO_MATERNO, p.SEXO, p.FECHA_NACIMIENTO, p.FAMILIA, p.ROL, p.EMAIL, p.TELEFONO, p.OBSERVACIONES, p.GRUPO_FAMILIAR_ID, p.URL_IMAGEN, p.FECHA_CREACION, p.FECHA_ACTUALIZACION, gf.NOMBRE as grupo_familiar, r.nombre_rol as rol_nombre FROM personas p LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID LEFT JOIN roles r ON p.ROL = r.id WHERE p.ID = ?");
-            $stmt->execute([$id]);
-            $persona = $stmt->fetch();
+            $_SESSION['success'] = "Persona {$persona['NOMBRES']} {$persona['APELLIDO_PATERNO']} eliminada exitosamente";
+            header('Location: personas.php');
+            exit();
+            break;
             
-            if ($persona) {
-                echo json_encode(['success' => true, 'persona' => $persona]);
-            } else {
-                echo json_encode(['success' => false, 'error' => 'Persona no encontrada']);
-            }
-        } catch (PDOException $e) {
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-        }
-        exit();
-    }
-}
-
-/**
- * Obtiene mensaje de error específico para errores de archivo de PHP
- * @param int $codigo_error Código de error de $_FILES['imagen']['error']
- * @return string Mensaje de error descriptivo
- */
-function obtenerMensajeErrorArchivo($codigo_error) {
-    switch ($codigo_error) {
-        case UPLOAD_ERR_INI_SIZE:
-            return 'El archivo excede el tamaño máximo permitido por el servidor (php.ini).';
-        case UPLOAD_ERR_FORM_SIZE:
-            return 'El archivo excede el tamaño máximo permitido por el formulario HTML.';
-        case UPLOAD_ERR_PARTIAL:
-            return 'El archivo se subió solo parcialmente. Intenta nuevamente.';
-        case UPLOAD_ERR_NO_FILE:
-            return 'No se seleccionó ningún archivo.';
-        case UPLOAD_ERR_NO_TMP_DIR:
-            return 'Error del servidor: No existe directorio temporal.';
-        case UPLOAD_ERR_CANT_WRITE:
-            return 'Error del servidor: No se pudo escribir el archivo en disco.';
-        case UPLOAD_ERR_EXTENSION:
-            return 'Error del servidor: Una extensión de PHP detuvo la subida del archivo.';
         default:
-            return 'Error desconocido al subir el archivo. Código: ' . $codigo_error;
+            throw new Exception('Acción no válida');
     }
+    
+} catch (Exception $e) {
+    $_SESSION['error'] = $e->getMessage();
+    header('Location: personas.php');
+    exit();
 }
 
-header('Location: personas.php');
-exit();
-
 /**
- * Procesa y guarda la imagen subida
- * @param array $archivo Archivo subido ($_FILES['imagen'])
- * @return string|null Ruta de la imagen guardada o null si hay error
+ * Función para procesar y guardar imágenes subidas
  */
 function procesarImagen($archivo) {
-    // Verificar que sea un archivo válido
-    if (!is_uploaded_file($archivo['tmp_name'])) {
-        return ['error' => 'Archivo no válido o no fue subido correctamente.'];
-    }
-    
-    // Verificar tipo de archivo
-    $tipos_permitidos = ['image/jpeg', 'image/jpg', 'image/png'];
-    if (!in_array($archivo['type'], $tipos_permitidos)) {
-        return ['error' => 'Tipo de archivo no permitido. Solo se permiten JPG y PNG. El archivo subido es: ' . $archivo['type']];
-    }
-    
-    // Verificar extensión del archivo
-    $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
-    $extensiones_permitidas = ['jpg', 'jpeg', 'png'];
-    if (!in_array($extension, $extensiones_permitidas)) {
-        return ['error' => 'Extensión de archivo no permitida. Solo se permiten: ' . implode(', ', $extensiones_permitidas) . '. El archivo subido tiene extensión: ' . $extension];
-    }
-    
-    // Verificar tamaño (500KB máximo)
-    $tamanio_maximo = 500 * 1024; // 500KB en bytes
-    if ($archivo['size'] > $tamanio_maximo) {
-        $tamanio_mb = round($archivo['size'] / (1024 * 1024), 2);
-        return ['error' => 'El archivo es demasiado grande. Tamaño máximo: 500KB. El archivo subido tiene: ' . $tamanio_mb . 'MB'];
-    }
-    
-    // Verificar que el archivo no esté vacío
-    if ($archivo['size'] == 0) {
-        return ['error' => 'El archivo está vacío. Selecciona una imagen válida.'];
-    }
+    $directorioDestino = dirname(__DIR__) . '/uploads/personas/';
     
     // Crear directorio si no existe
-    $directorio_destino = '../assets/images/personas/';
-    if (!is_dir($directorio_destino)) {
-        if (!mkdir($directorio_destino, 0755, true)) {
-            return ['error' => 'No se pudo crear el directorio de destino para las imágenes.'];
-        }
+    if (!is_dir($directorioDestino)) {
+        mkdir($directorioDestino, 0755, true);
     }
     
-    // Verificar permisos de escritura
-    if (!is_writable($directorio_destino)) {
-        return ['error' => 'No hay permisos de escritura en el directorio de imágenes.'];
+    // Validar tipo de archivo
+    $tiposPermitidos = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!in_array($archivo['type'], $tiposPermitidos)) {
+        throw new Exception('Tipo de archivo no permitido. Solo se permiten JPG y PNG.');
     }
     
-    // Generar nombre único para el archivo
-    $nombre_archivo = uniqid() . '_' . time() . '.' . $extension;
-    $ruta_completa = $directorio_destino . $nombre_archivo;
+    // Validar tamaño (500KB máximo)
+    $tamanioMaximo = 500 * 1024;
+    if ($archivo['size'] > $tamanioMaximo) {
+        throw new Exception('El archivo es demasiado grande. Tamaño máximo: 500KB');
+    }
+    
+    // Generar nombre único
+    $extension = pathinfo($archivo['name'], PATHINFO_EXTENSION);
+    $nombreArchivo = uniqid() . '_' . time() . '.' . $extension;
+    $rutaCompleta = $directorioDestino . $nombreArchivo;
     
     // Mover archivo
-    if (move_uploaded_file($archivo['tmp_name'], $ruta_completa)) {
-        // Verificar que el archivo se movió correctamente
-        if (file_exists($ruta_completa)) {
-            // Retornar ruta relativa para la base de datos
-            return 'assets/images/personas/' . $nombre_archivo;
-        } else {
-            return ['error' => 'Error: El archivo no se guardó correctamente en el servidor.'];
-        }
-    } else {
-        return ['error' => 'Error al mover el archivo subido. Verifica los permisos del servidor.'];
+    if (!move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
+        throw new Exception('Error al guardar la imagen');
     }
+    
+    // Retornar ruta relativa
+    return 'uploads/personas/' . $nombreArchivo;
 }
 ?>

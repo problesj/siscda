@@ -1,7 +1,19 @@
 <?php
-require_once '../session_config.php';
+// Log de debug para verificar que el archivo se está ejecutando
+error_log("asistencias_actions.php ejecutándose - Método: " . $_SERVER['REQUEST_METHOD'] . ", POST data: " . json_encode($_POST));
+
+require_once dirname(__DIR__) . '/session_config.php';
 session_start();
-require_once '../config.php';
+require_once dirname(__DIR__) . '/config.php';
+require_once dirname(__DIR__) . '/includes/auth_functions.php';
+
+// Verificar que la función conectarDB esté disponible
+if (!function_exists('conectarDB')) {
+    error_log("ERROR: La función conectarDB no está disponible después de incluir auth_functions.php");
+    error_log("Archivos incluidos: " . implode(', ', get_included_files()));
+} else {
+    error_log("✅ La función conectarDB está disponible");
+}
 
 // Verificar si el usuario está logueado
 if (!isset($_SESSION['usuario_id'])) {
@@ -12,12 +24,12 @@ if (!isset($_SESSION['usuario_id'])) {
             'success' => false, 
             'error' => 'session_expired',
             'message' => 'La sesión ha caducado. Por favor, inicie sesión nuevamente.',
-            'redirect' => '../login.php'
+            'redirect' => dirname($_SERVER['REQUEST_URI']) . '/../login.php'
         ]);
         exit();
     } else {
         // Si es una petición normal, redirigir al login
-        header('Location: ../login.php');
+        header('Location: ' . dirname($_SERVER['REQUEST_URI']) . '/../login.php');
         exit();
     }
 }
@@ -85,24 +97,44 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     if ($action == 'verificar_sesion') {
         // Verificar el estado de la sesión
+        if (ob_get_level()) ob_end_clean();
         header('Content-Type: application/json');
+        header('Cache-Control: no-cache, must-revalidate');
         
         if (isset($_SESSION['usuario_id'])) {
             echo json_encode(['success' => true, 'message' => 'Sesión válida']);
         } else {
-            echo json_encode([
-                'success' => false, 
-                'error' => 'session_expired',
-                'message' => 'La sesión ha caducado',
-                'redirect' => '../login.php'
-            ]);
+                    echo json_encode([
+            'success' => false, 
+            'error' => 'session_expired',
+            'message' => 'La sesión ha caducado',
+            'redirect' => dirname($_SERVER['REQUEST_URI']) . '/../login.php'
+        ]);
         }
+        exit();
+    }
+    
+    if ($action == 'test') {
+        // Función de prueba para verificar que el archivo funciona
+        if (ob_get_level()) ob_end_clean();
+        header('Content-Type: application/json');
+        header('Cache-Control: no-cache, must-revalidate');
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => 'asistencias_actions.php funcionando correctamente',
+            'timestamp' => date('Y-m-d H:i:s'),
+            'session_id' => session_id()
+        ]);
         exit();
     }
     
     if ($action == 'consultar_asistencias') {
         // Consultar el estado actual de las asistencias
+        // Limpiar cualquier salida previa
+        if (ob_get_level()) ob_end_clean();
         header('Content-Type: application/json');
+        header('Cache-Control: no-cache, must-revalidate');
         
         try {
             $pdo = conectarDB();
@@ -141,11 +173,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $resultado[$id] = isset($asistencias[$id]);
             }
             
-            echo json_encode([
+            $response = [
                 'success' => true, 
                 'asistencias' => $resultado,
                 'message' => 'Estados de asistencia consultados correctamente'
-            ]);
+            ];
+            
+            error_log("Respuesta consultar_asistencias: " . json_encode($response));
+            echo json_encode($response);
             
         } catch (PDOException $e) {
             error_log("Error en consultar_asistencias: " . $e->getMessage());
@@ -156,7 +191,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     if ($action == 'guardar_asistencia_individual') {
         // Manejar guardado individual de asistencia
+        // Limpiar cualquier salida previa
+        if (ob_get_level()) ob_end_clean();
         header('Content-Type: application/json');
+        header('Cache-Control: no-cache, must-revalidate');
         
         // Debug: log de la petición
         error_log("Guardando asistencia individual: " . json_encode($_POST));
@@ -188,7 +226,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 error_log("Asistencia removida para persona $persona_id en culto $culto_id");
             }
             
-            echo json_encode(['success' => true, 'message' => 'Asistencia actualizada']);
+            $response = ['success' => true, 'message' => 'Asistencia actualizada'];
+            error_log("Respuesta guardar_asistencia_individual: " . json_encode($response));
+            echo json_encode($response);
             
         } catch (PDOException $e) {
             error_log("Error en guardar_asistencia_individual: " . $e->getMessage());

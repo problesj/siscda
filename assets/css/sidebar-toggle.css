@@ -1,0 +1,194 @@
+/**
+ * Estilos para el toggle del sidebar
+ */
+
+/* Transiciones suaves para el sidebar */
+#sidebar {
+    transition: all 0.3s ease-in-out;
+}
+
+#mainContent {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Estado oculto del sidebar */
+.sidebar-hidden #sidebar {
+    display: none !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Estilos del header del sidebar */
+.sidebar-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    margin: 0 10px 15px 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.sidebar-logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.sidebar-logo i {
+    color: #007bff !important;
+    text-shadow: 0 2px 4px rgba(0,123,255,0.3);
+}
+
+.sidebar-title {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: #495057 !important;
+}
+
+/* Estado expandido del contenido principal */
+.sidebar-hidden #mainContent {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 !important;
+}
+
+/* Clases específicas para Bootstrap cuando el sidebar está oculto */
+.sidebar-hidden #mainContent.col-md-9,
+.sidebar-hidden #mainContent.col-lg-10 {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 !important;
+}
+
+/* Botón del toggle */
+#sidebarToggle {
+    transition: all 0.2s ease-in-out;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+}
+
+#sidebarToggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
+}
+
+#sidebarToggle:active {
+    transform: scale(0.95);
+}
+
+/* Icono del toggle */
+#sidebarToggleIcon {
+    transition: transform 0.3s ease-in-out;
+}
+
+/* Estado cuando el sidebar está oculto */
+.sidebar-hidden #sidebarToggleIcon {
+    transform: rotate(180deg);
+}
+
+/* Responsive adjustments */
+@media (max-width: 767.98px) {
+    #sidebarToggle {
+        display: none !important;
+    }
+}
+
+/* Mejoras de usabilidad para elementos táctiles */
+@media (max-width: 767.98px) {
+    /* Hacer los botones más grandes para móviles */
+    .btn {
+        min-height: 48px;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        border-radius: 0.5rem;
+    }
+    
+    /* Ajustar el tamaño de los iconos */
+    .fas, .far, .fab {
+        font-size: 1.2em;
+    }
+    
+    /* Mejorar la accesibilidad de enlaces */
+    a {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* Ajustar el tamaño de los elementos de navegación */
+    .nav-link {
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        min-height: 48px;
+    }
+    
+    /* Hacer las barras de desplazamiento más grandes */
+    ::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 6px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 6px;
+        min-height: 40px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+}
+
+/* Animación para el contenido principal cuando se expande */
+#mainContent.expanded {
+    animation: expandContent 0.3s ease-in-out;
+}
+
+@keyframes expandContent {
+    from {
+        opacity: 0.8;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Tooltip para el botón */
+#sidebarToggle[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+}
+
+/* Forzar visibilidad del sidebar cuando está oculto */
+.sidebar-hidden #sidebar.d-md-block {
+    display: none !important;
+}
+
+/* Asegurar que el contenido principal ocupe todo el ancho */
+.sidebar-hidden .row > #mainContent {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+}
