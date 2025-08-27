@@ -824,10 +824,6 @@ function mostrarDatosPersona(persona) {
         // Mostrar el modal
         const modal = new bootstrap.Modal(document.getElementById('modalVerPersona'));
         modal.show();
-    } else {
-        // Si no se encuentra la persona, mostrar error
-        SwalUtils.showError('No se pudo encontrar la información de la persona');
-    }
 }
 
 // Función para editar persona desde el modal de ver
