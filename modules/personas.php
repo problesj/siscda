@@ -34,7 +34,12 @@ if (isset($_SESSION['error'])) {
                     <span class="input-group-text">
                         <i class="fas fa-search"></i>
                     </span>
-                    <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas por nombre, apellido, RUT o familia...">
+                    <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas por nombre, apellido, RUT o familia..." value="<?php echo htmlspecialchars($buscar); ?>">
+                    <?php if (!empty($buscar)): ?>
+                    <button class="btn btn-outline-secondary" type="button" onclick="limpiarBusqueda()" title="Limpiar búsqueda">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -60,24 +65,48 @@ if (isset($_SESSION['error'])) {
                     try {
                         $pdo = conectarDB();
                         
-                        // Configuración de paginación
-                        $registros_por_pagina = 10;
+                        // Configuración de paginación y búsqueda
+                        $registros_por_pagina = isset($_GET['items']) ? (int)$_GET['items'] : 25;
                         $pagina_actual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
-                        $offset = ($pagina_actual - 1) * $registros_por_pagina;
+                        $buscar = isset($_GET['buscar']) ? trim($_GET['buscar']) : '';
+                        
+                        // Construir consulta base
+                        $sql_base = "FROM personas p 
+                                    LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID 
+                                    LEFT JOIN roles r ON p.ROL = r.id";
+                        
+                        $where_conditions = [];
+                        $params = [];
+                        
+                        // Agregar condiciones de búsqueda si existe término
+                        if (!empty($buscar)) {
+                            $where_conditions[] = "(p.NOMBRES LIKE ? OR p.APELLIDO_PATERNO LIKE ? OR p.APELLIDO_MATERNO LIKE ? OR p.RUT LIKE ? OR p.FAMILIA LIKE ?)";
+                            $search_term = '%' . $buscar . '%';
+                            $params = array_merge($params, [$search_term, $search_term, $search_term, $search_term, $search_term]);
+                        }
+                        
+                        $sql_where = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
                         
                         // Obtener total de registros
-                        $stmt_total = $pdo->query("SELECT COUNT(*) as total FROM personas");
+                        $sql_total = "SELECT COUNT(*) as total " . $sql_base . " " . $sql_where;
+                        $stmt_total = $pdo->prepare($sql_total);
+                        $stmt_total->execute($params);
                         $total_registros = $stmt_total->fetch()['total'];
                         $total_paginas = ceil($total_registros / $registros_por_pagina);
                         
-                        // Consulta principal con paginación
-                        $stmt = $pdo->prepare("SELECT p.*, gf.NOMBRE as grupo_familiar, r.nombre_rol as rol_nombre
-                                           FROM personas p 
-                                           LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID 
-                                           LEFT JOIN roles r ON p.ROL = r.id
-                                           ORDER BY p.ID
-                                           LIMIT ? OFFSET ?");
-                        $stmt->execute([$registros_por_pagina, $offset]);
+                        // Ajustar página actual si es mayor al total
+                        if ($pagina_actual > $total_paginas && $total_paginas > 0) {
+                            $pagina_actual = $total_paginas;
+                        }
+                        
+                        $offset = ($pagina_actual - 1) * $registros_por_pagina;
+                        
+                        // Consulta principal con paginación y búsqueda
+                        $sql = "SELECT p.*, gf.NOMBRE as grupo_familiar, r.nombre_rol as rol_nombre " . $sql_base . " " . $sql_where . " ORDER BY p.ID LIMIT ? OFFSET ?";
+                        $stmt = $pdo->prepare($sql);
+                        $params[] = $registros_por_pagina;
+                        $params[] = $offset;
+                        $stmt->execute($params);
                         
                         while ($row = $stmt->fetch()) {
                             // Determinar imagen por defecto según el sexo
@@ -122,44 +151,37 @@ if (isset($_SESSION['error'])) {
                 </tbody>
             </table>
             
-            <!-- Paginación -->
+            <!-- Controles de paginación y búsqueda -->
             <div class="row mt-3">
                 <div class="col-md-6">
                     <div class="d-flex align-items-center">
                         <label class="me-2">Mostrar:</label>
-                        <select class="form-select form-select-sm me-2" id="itemsPorPagina" onchange="cambiarItemsPorPagina()" style="width: auto;">
-                            <option value="10">10</option>
-                            <option value="25" selected>25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
+                        <select class="form-select form-select-sm me-2" id="itemsPorPagina" style="width: auto;">
+                            <option value="10" <?php echo $registros_por_pagina == 10 ? 'selected' : ''; ?>>10</option>
+                            <option value="25" <?php echo $registros_por_pagina == 25 ? 'selected' : ''; ?>>25</option>
+                            <option value="50" <?php echo $registros_por_pagina == 50 ? 'selected' : ''; ?>>50</option>
+                            <option value="100" <?php echo $registros_por_pagina == 100 ? 'selected' : ''; ?>>100</option>
                         </select>
                         <span class="text-muted">registros por página</span>
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <nav aria-label="Navegación de páginas">
-                        <ul class="pagination justify-content-end mb-0" id="paginacion">
-                            <!-- La paginación se generará dinámicamente -->
-                        </ul>
-                    </nav>
-                </div>
-            </div>
-            
-            <!-- Información de registros y paginación -->
-            <div class="row mt-2">
-                <div class="col-md-6">
                     <small class="text-muted" id="infoRegistros">
                         Mostrando <?php echo $offset + 1; ?>-<?php echo min($offset + $registros_por_pagina, $total_registros); ?> de <?php echo $total_registros; ?> registros
                     </small>
                 </div>
-                <div class="col-md-6">
-                    <?php if ($total_paginas > 1): ?>
+            </div>
+            
+            <!-- Paginación -->
+            <?php if ($total_paginas > 1): ?>
+            <div class="row mt-2">
+                <div class="col-12">
                     <nav aria-label="Navegación de páginas">
-                        <ul class="pagination pagination-sm justify-content-end mb-0">
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
                             <!-- Botón Anterior -->
                             <?php if ($pagina_actual > 1): ?>
                             <li class="page-item">
-                                <a class="page-link" href="?pagina=<?php echo $pagina_actual - 1; ?>" aria-label="Anterior">
+                                <a class="page-link" href="?pagina=<?php echo $pagina_actual - 1; ?>&items=<?php echo $registros_por_pagina; ?><?php echo !empty($buscar) ? '&buscar=' . urlencode($buscar) : ''; ?>" aria-label="Anterior">
                                     <span aria-hidden="true">&laquo;</span>
                                 </a>
                             </li>
@@ -172,7 +194,7 @@ if (isset($_SESSION['error'])) {
                             
                             if ($inicio > 1): ?>
                             <li class="page-item">
-                                <a class="page-link" href="?pagina=1">1</a>
+                                <a class="page-link" href="?pagina=1&items=<?php echo $registros_por_pagina; ?><?php echo !empty($buscar) ? '&buscar=' . urlencode($buscar) : ''; ?>">1</a>
                             </li>
                             <?php if ($inicio > 2): ?>
                             <li class="page-item disabled">
@@ -183,7 +205,7 @@ if (isset($_SESSION['error'])) {
                             
                             <?php for ($i = $inicio; $i <= $fin; $i++): ?>
                             <li class="page-item <?php echo $i == $pagina_actual ? 'active' : ''; ?>">
-                                <a class="page-link" href="?pagina=<?php echo $i; ?>"><?php echo $i; ?></a>
+                                <a class="page-link" href="?pagina=<?php echo $i; ?>&items=<?php echo $registros_por_pagina; ?><?php echo !empty($buscar) ? '&buscar=' . urlencode($buscar) : ''; ?>"><?php echo $i; ?></a>
                             </li>
                             <?php endfor; ?>
                             
@@ -194,23 +216,23 @@ if (isset($_SESSION['error'])) {
                             </li>
                             <?php endif; ?>
                             <li class="page-item">
-                                <a class="page-link" href="?pagina=<?php echo $total_paginas; ?>"><?php echo $total_paginas; ?></a>
+                                <a class="page-link" href="?pagina=<?php echo $total_paginas; ?>&items=<?php echo $registros_por_pagina; ?><?php echo !empty($buscar) ? '&buscar=' . urlencode($buscar) : ''; ?>"><?php echo $total_paginas; ?></a>
                             </li>
                             <?php endif; ?>
                             
                             <!-- Botón Siguiente -->
                             <?php if ($pagina_actual < $total_paginas): ?>
                             <li class="page-item">
-                                <a class="page-link" href="?pagina=<?php echo $pagina_actual + 1; ?>" aria-label="Siguiente">
+                                <a class="page-link" href="?pagina=<?php echo $pagina_actual + 1; ?>&items=<?php echo $registros_por_pagina; ?><?php echo !empty($buscar) ? '&buscar=' . urlencode($buscar) : ''; ?>" aria-label="Siguiente">
                                     <span aria-hidden="true">&raquo;</span>
                                 </a>
                             </li>
                             <?php endif; ?>
                         </ul>
                     </nav>
-                    <?php endif; ?>
                 </div>
             </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -420,6 +442,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!validarFormulario()) {
                 e.preventDefault();
             }
+        });
+    }
+    
+    // Agregar evento para cambiar cantidad de registros por página
+    const itemsPorPagina = document.getElementById('itemsPorPagina');
+    if (itemsPorPagina) {
+        itemsPorPagina.addEventListener('change', function() {
+            cambiarItemsPorPagina(this.value);
         });
     }
 });
@@ -833,14 +863,42 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
         searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            filtrarTabla(searchTerm);
+            const searchTerm = this.value.trim();
+            if (searchTerm.length > 0) {
+                // Si hay término de búsqueda, redirigir a la página de búsqueda
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.set('buscar', searchTerm);
+                urlParams.set('pagina', '1'); // Volver a la primera página
+                window.location.href = window.location.pathname + '?' + urlParams.toString();
+            } else {
+                // Si no hay término de búsqueda, limpiar la búsqueda
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.delete('buscar');
+                urlParams.set('pagina', '1');
+                window.location.href = window.location.pathname + '?' + urlParams.toString();
+            }
         });
     }
     
     // Actualizar información de registros
     actualizarInfoRegistros();
 });
+
+// Función para cambiar cantidad de registros por página
+function cambiarItemsPorPagina(items) {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('items', items);
+    urlParams.set('pagina', '1'); // Volver a la primera página
+    window.location.href = window.location.pathname + '?' + urlParams.toString();
+}
+
+// Función para limpiar búsqueda
+function limpiarBusqueda() {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.delete('buscar');
+    urlParams.set('pagina', '1');
+    window.location.href = window.location.pathname + '?' + urlParams.toString();
+}
 
 // Función para filtrar la tabla
 function filtrarTabla(searchTerm) {
