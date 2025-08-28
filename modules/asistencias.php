@@ -434,11 +434,17 @@ if (isset($_SESSION['error'])) {
                         <tbody>
                             <?php
                             try {
-                                // Consulta con el mismo ordenamiento que el listado de personas
+                                // Consulta con ordenamiento que prioriza filas con datos sobre las vacías
                                 $stmt = $pdo->query("SELECT p.*, gf.NOMBRE as grupo_familiar 
                                                    FROM personas p 
                                                    LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID 
-                                                   ORDER BY p.ID");
+                                                   ORDER BY 
+                                                       CASE WHEN gf.NOMBRE IS NOT NULL AND gf.NOMBRE != '' THEN 1 ELSE 2 END,
+                                                       gf.NOMBRE ASC,
+                                                       CASE WHEN p.FAMILIA IS NOT NULL AND p.FAMILIA != '' THEN 1 ELSE 2 END,
+                                                       p.FAMILIA ASC,
+                                                       CASE WHEN p.APELLIDO_PATERNO IS NOT NULL AND p.APELLIDO_PATERNO != '' THEN 1 ELSE 2 END,
+                                                       p.APELLIDO_PATERNO ASC");
                                 
                                 $familiaActual = '';
                                 $colorAlternado = true;
@@ -477,6 +483,20 @@ if (isset($_SESSION['error'])) {
                                     echo "<td class='d-none d-md-table-cell'>" . $persona['APELLIDO_PATERNO'] . "</td>";
                                     echo "<td class='d-none d-md-table-cell'>" . ($persona['FAMILIA'] ?? '-') . "</td>";
                                     echo "<td class='d-none d-md-table-cell'>" . ($persona['grupo_familiar'] ?? '') . "</td>";
+                                    
+                                    // Columna Ver para todas las pantallas
+                                    $tieneImagen = !empty($persona['URL_IMAGEN']);
+                                    $icono = $tieneImagen ? 'fa-image' : 'fa-user';
+                                    $claseBoton = $tieneImagen ? 'btn-info' : 'btn-secondary';
+                                    $textoBoton = $tieneImagen ? 'Ver Foto' : 'Ver Datos';
+                                    
+                                    echo "<td class='text-center'>
+                                            <button type='button' class='btn btn-sm $claseBoton' 
+                                                    onclick='verPersonaAsistencia(" . $persona['ID'] . ")'
+                                                    title='$textoBoton'>
+                                                <i class='fas $icono'></i>
+                                            </button>
+                                          </td>";
                                     
                                     // Columna móvil que combina toda la información
                                     echo "<td class='d-table-cell d-md-none'>
@@ -1499,10 +1519,48 @@ function aplicarOrdenamientoYFiltrado() {
     
     let datosOrdenados;
     
-    // Si no hay ordenamiento específico, mantener el orden original de la base de datos
-    if (ordenActual === 'ORIGINAL') {
-        datosOrdenados = [...datosFiltrados].sort((a, b) => a.ordenOriginal - b.ordenOriginal);
-    } else {
+            // Si no hay ordenamiento específico, aplicar el orden por defecto: grupo familiar, familia, apellido paterno
+        // Priorizando filas con datos sobre las vacías
+        if (ordenActual === 'ORIGINAL') {
+            datosOrdenados = [...datosFiltrados].sort((a, b) => {
+                // Primero por grupo familiar (priorizar los que tienen datos)
+                const grupoA = a.grupoFamiliar || '';
+                const grupoB = b.grupoFamiliar || '';
+                const tieneGrupoA = grupoA !== '';
+                const tieneGrupoB = grupoB !== '';
+                
+                if (tieneGrupoA !== tieneGrupoB) {
+                    return tieneGrupoA ? -1 : 1; // Los que tienen grupo familiar van primero
+                }
+                if (grupoA !== grupoB) {
+                    return grupoA.localeCompare(grupoB);
+                }
+                
+                // Luego por familia (priorizar los que tienen datos)
+                const familiaA = a.familia || '';
+                const familiaB = b.familia || '';
+                const tieneFamiliaA = familiaA !== '';
+                const tieneFamiliaB = familiaB !== '';
+                
+                if (tieneFamiliaA !== tieneFamiliaB) {
+                    return tieneFamiliaA ? -1 : 1; // Los que tienen familia van primero
+                }
+                if (familiaA !== familiaB) {
+                    return familiaA.localeCompare(familiaB);
+                }
+                
+                // Finalmente por apellido paterno (priorizar los que tienen datos)
+                const apellidoA = a.apellidoPaterno || '';
+                const apellidoB = b.apellidoPaterno || '';
+                const tieneApellidoA = apellidoA !== '';
+                const tieneApellidoB = apellidoB !== '';
+                
+                if (tieneApellidoA !== tieneApellidoB) {
+                    return tieneApellidoA ? -1 : 1; // Los que tienen apellido van primero
+                }
+                return apellidoA.localeCompare(apellidoB);
+            });
+        } else {
         // Aplicar ordenamiento personalizado
         datosOrdenados = [...datosFiltrados].sort((a, b) => {
             let valorA, valorB;
@@ -1563,9 +1621,46 @@ function aplicarOrdenamientoYFiltrado() {
                     let familiaActual = '';
                     let colorAlternado = true;
                     
-                    // Ordenar por orden original si es necesario
+                    // Ordenar por orden por defecto si es necesario (priorizando filas con datos)
                     const datosOrdenados = ordenActual === 'ORIGINAL' ? 
-                        [...datos].sort((a, b) => a.ordenOriginal - b.ordenOriginal) : 
+                        [...datos].sort((a, b) => {
+                            // Primero por grupo familiar (priorizar los que tienen datos)
+                            const grupoA = a.grupoFamiliar || '';
+                            const grupoB = b.grupoFamiliar || '';
+                            const tieneGrupoA = grupoA !== '';
+                            const tieneGrupoB = grupoB !== '';
+                            
+                            if (tieneGrupoA !== tieneGrupoB) {
+                                return tieneGrupoA ? -1 : 1; // Los que tienen grupo familiar van primero
+                            }
+                            if (grupoA !== grupoB) {
+                                return grupoA.localeCompare(grupoB);
+                            }
+                            
+                            // Luego por familia (priorizar los que tienen datos)
+                            const familiaA = a.familia || '';
+                            const familiaB = b.familia || '';
+                            const tieneFamiliaA = familiaA !== '';
+                            const tieneFamiliaB = familiaB !== '';
+                            
+                            if (tieneFamiliaA !== tieneFamiliaB) {
+                                return tieneFamiliaA ? -1 : 1; // Los que tienen familia van primero
+                            }
+                            if (familiaA !== familiaB) {
+                                return familiaA.localeCompare(familiaB);
+                            }
+                            
+                            // Finalmente por apellido paterno (priorizar los que tienen datos)
+                            const apellidoA = a.apellidoPaterno || '';
+                            const apellidoB = b.apellidoPaterno || '';
+                            const tieneApellidoA = apellidoA !== '';
+                            const tieneApellidoB = apellidoB !== '';
+                            
+                            if (tieneApellidoA !== tieneApellidoB) {
+                                return tieneApellidoA ? -1 : 1; // Los que tienen apellido van primero
+                            }
+                            return apellidoA.localeCompare(apellidoB);
+                        }) : 
                         datos;
                     
                     // Obtener el estado actual de las asistencias desde la base de datos
@@ -1603,14 +1698,36 @@ function aplicarOrdenamientoYFiltrado() {
                             const row = document.createElement('tr');
                             row.setAttribute('data-debug', `Familia: ${familiaPersona}, Color: ${colorHex}, Alternado: ${colorAlternado}`);
                             row.style.setProperty('background-color', colorHex, 'important');
+                            // Determinar si la persona tiene imagen
+                            const tieneImagen = persona.tieneImagen || false;
+                            const icono = tieneImagen ? 'fa-image' : 'fa-user';
+                            const claseBoton = tieneImagen ? 'btn-info' : 'btn-secondary';
+                            const textoBoton = tieneImagen ? 'Ver Foto' : 'Ver Datos';
+                            
                             row.innerHTML = `
                                 <td class='text-center'>
                                     <input type='checkbox' name='asistencias[]' value='${persona.id}' ${asistio ? 'checked' : ''} class='form-check-input checkbox-asistencia'>
                                 </td>
-                                <td>${persona.nombres}</td>
-                                <td>${persona.apellidoPaterno}</td>
-                                <td>${persona.familia || ''}</td>
-                                <td>${persona.grupoFamiliar || ''}</td>
+                                <td class='d-none d-md-table-cell'>${persona.nombres}</td>
+                                <td class='d-none d-md-table-cell'>${persona.apellidoPaterno}</td>
+                                <td class='d-none d-md-table-cell'>${persona.familia || '-'}</td>
+                                <td class='d-none d-md-table-cell'>${persona.grupoFamiliar || ''}</td>
+                                <td class='text-center'>
+                                    <button type='button' class='btn btn-sm ${claseBoton}' 
+                                            onclick='verPersonaAsistencia(${persona.id})'
+                                            title='${textoBoton}'>
+                                        <i class='fas ${icono}'></i>
+                                    </button>
+                                </td>
+                                <td class='d-table-cell d-md-none'>
+                                    <div class='fw-bold'>${persona.nombres} ${persona.apellidoPaterno}</div>
+                                    <div class='small text-muted'>
+                                        <i class='fas fa-home me-1'></i>${persona.grupoFamiliar || ''}
+                                    </div>
+                                    <div class='small text-muted'>
+                                        <i class='fas fa-users me-1'></i>${persona.familia || ''}
+                                    </div>
+                                </td>
                             `;
                             tbody.appendChild(row);
                         });
@@ -1780,6 +1897,19 @@ function cargarDatosIniciales() {
                     
                     // Solo agregar si hay datos válidos
                     if (nombres && apellidoPaterno) {
+                        // Buscar información de imagen en la fila original
+                        const botonVer = celdas[5]?.querySelector('button');
+                        const tieneImagen = botonVer && botonVer.classList.contains('btn-info');
+                        
+                        // Obtener la URL real de la imagen si existe
+                        let imagenUrl = null;
+                        if (tieneImagen) {
+                            // Buscar la URL real de la imagen en la fila original
+                            // La URL está en el atributo data-url del botón o en algún campo oculto
+                            // Por ahora, intentaremos obtenerla de la base de datos más adelante
+                            imagenUrl = null; // Se cargará dinámicamente cuando se abra el modal
+                        }
+                        
                         datosPersonas.push({
                             id: checkbox.value,
                             nombres: nombres,
@@ -1787,7 +1917,9 @@ function cargarDatosIniciales() {
                             familia: familia === '-' ? '' : familia,
                             grupoFamiliar: grupoFamiliar === '' ? '' : grupoFamiliar,
                             asistio: checkbox.checked,
-                            ordenOriginal: index // Mantener el orden original
+                            ordenOriginal: index, // Mantener el orden original
+                            tieneImagen: tieneImagen, // Información sobre si tiene imagen
+                            imagenUrl: imagenUrl // URL de la imagen si existe
                         });
                     }
                 }
@@ -1828,6 +1960,105 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+// Función para ver información de persona
+function verPersonaAsistencia(personaId) {
+    console.log('Ver persona:', personaId);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalVerPersonaAsistencia'));
+    modal.show();
+    
+    // Cargar datos de la persona
+    mostrarDatosPersonaAsistencia(personaId);
+}
+
+// Función para mostrar datos de persona en el modal
+function mostrarDatosPersonaAsistencia(personaId) {
+    // Buscar la persona en los datos cargados
+    const persona = datosPersonas.find(p => p.id == personaId);
+    
+    if (persona) {
+        // Actualizar imagen
+        const imagenPersona = document.getElementById('imagenPersona');
+        const imagenPersonaContainer = document.getElementById('imagenPersonaContainer');
+        const imagenDefaultContainer = document.getElementById('imagenDefaultContainer');
+        
+        // Construir la URL de la imagen basada en si la persona tiene imagen
+        if (persona.tieneImagen) {
+            // Hacer una llamada AJAX para obtener la URL real de la imagen
+            fetch(`../modules/personas_actions.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `action=obtener_imagen&persona_id=${persona.id}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.imagen_url) {
+                    // Usar la URL real de la imagen
+                    imagenPersona.src = `../${data.imagen_url}`;
+                    imagenPersonaContainer.style.display = 'block';
+                    imagenDefaultContainer.style.display = 'none';
+                    
+                    // Manejar errores de carga de imagen
+                    imagenPersona.onerror = function() {
+                        imagenPersonaContainer.style.display = 'none';
+                        imagenDefaultContainer.style.display = 'block';
+                    };
+                } else {
+                    // No hay imagen o error, mostrar icono por defecto
+                    imagenPersonaContainer.style.display = 'none';
+                    imagenDefaultContainer.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error al obtener imagen:', error);
+                imagenPersonaContainer.style.display = 'none';
+                imagenDefaultContainer.style.display = 'block';
+            });
+        } else {
+            imagenPersonaContainer.style.display = 'none';
+            imagenDefaultContainer.style.display = 'block';
+        }
+        
+        // Actualizar datos
+        const datosPersona = document.getElementById('datosPersona');
+        datosPersona.innerHTML = `
+            <h6 class="mb-3">Información Personal</h6>
+            <div class="row mb-2">
+                <div class="col-4"><strong>Nombres:</strong></div>
+                <div class="col-8">${persona.nombres}</div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-4"><strong>Apellido Paterno:</strong></div>
+                <div class="col-8">${persona.apellidoPaterno}</div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-4"><strong>Familia:</strong></div>
+                <div class="col-8">${persona.familia || 'No especificada'}</div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-4"><strong>Grupo Familiar:</strong></div>
+                <div class="col-8">${persona.grupoFamiliar || 'No especificado'}</div>
+            </div>
+            <div class="row mb-2">
+                <div class="col-4"><strong>Estado de Asistencia:</strong></div>
+                <div class="col-8">
+                    <span class="badge ${persona.asistio ? 'bg-success' : 'bg-secondary'}">
+                        ${persona.asistio ? 'Asistió' : 'No asistió'}
+                    </span>
+                </div>
+            </div>
+        `;
+    } else {
+        console.error('Persona no encontrada:', personaId);
+        // Mostrar mensaje de error
+        const datosPersona = document.getElementById('datosPersona');
+        datosPersona.innerHTML = '<div class="alert alert-danger">No se pudo cargar la información de la persona.</div>';
+    }
+}
+
 // Mostrar alertas de sesión con SweetAlert2
 <?php if ($successMessage): ?>
 SwalUtils.showSuccess('<?php echo addslashes($successMessage); ?>');
@@ -1837,5 +2068,39 @@ SwalUtils.showSuccess('<?php echo addslashes($successMessage); ?>');
 SwalUtils.showError('<?php echo addslashes($errorMessage); ?>');
 <?php endif; ?>
 </script>
+
+<!-- Modal para ver información de persona -->
+<div class="modal fade" id="modalVerPersonaAsistencia" tabindex="-1" aria-labelledby="modalVerPersonaAsistenciaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalVerPersonaAsistenciaLabel">Información de la Persona</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <div id="imagenPersonaContainer">
+                            <img id="imagenPersona" src="" alt="Foto de la persona" class="img-fluid rounded" style="max-width: 200px; max-height: 200px; object-fit: cover;">
+                        </div>
+                        <div id="imagenDefaultContainer" style="display: none;">
+                            <div class="bg-light rounded d-flex align-items-center justify-content-center" style="width: 200px; height: 200px; margin: 0 auto;">
+                                <i class="fas fa-user fa-4x text-muted"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div id="datosPersona">
+                            <!-- Los datos se cargarán dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php include '../includes/footer.php'; ?>

@@ -164,6 +164,32 @@ try {
             exit();
             break;
             
+        case 'obtener_imagen':
+            // Obtener la URL de la imagen de una persona
+            $persona_id = $_POST['persona_id'] ?? 0;
+            if (!$persona_id) {
+                throw new Exception('ID de persona no proporcionado');
+            }
+            
+            // Obtener la URL de la imagen
+            $stmt = $pdo->prepare("SELECT URL_IMAGEN FROM personas WHERE ID = ?");
+            $stmt->execute([$persona_id]);
+            $imagen_url = $stmt->fetchColumn();
+            
+            if ($imagen_url) {
+                echo json_encode([
+                    'success' => true,
+                    'imagen_url' => $imagen_url
+                ]);
+            } else {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'No se encontró imagen para esta persona'
+                ]);
+            }
+            exit();
+            break;
+            
         case 'eliminar':
             // Eliminar persona
             $id = $_GET['id'] ?? 0;
