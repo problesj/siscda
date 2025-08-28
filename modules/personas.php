@@ -369,6 +369,10 @@ function aplicarOrdenamientoYFiltrado() {
                     valorA = a.FAMILIA || '';
                     valorB = b.FAMILIA || '';
                     break;
+                case 'GRUPO_FAMILIAR':
+                    valorA = a.GRUPO_FAMILIAR_NOMBRE || '';
+                    valorB = b.GRUPO_FAMILIAR_NOMBRE || '';
+                    break;
                 case 'APELLIDO_PATERNO':
                     valorA = a.APELLIDO_PATERNO || '';
                     valorB = b.APELLIDO_PATERNO || '';
@@ -906,4 +910,3 @@ Swal.fire({
 </script>
 
 <?php include '../includes/footer.php'; ?>
-n 
