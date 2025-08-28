@@ -410,12 +410,9 @@ function mostrarPagina(datos, pagina) {
         datosPagina.forEach(persona => {
             // Determinar imagen por defecto
             let imagenSrc = '../assets/images/personas/default_male.svg';
-            if (persona.IMAGEN) {
-                const rutaImagen = '../uploads/personas/' + persona.IMAGEN;
-                if (fileExists(rutaImagen)) {
-                    imagenSrc = rutaImagen;
-                }
-            } else if (persona.SEXO === 'Femenino') {
+            if (persona.URL_IMAGEN) {
+                imagenSrc = '../' + persona.URL_IMAGEN;
+            } else if (persona.SEXO === 'F') {
                 imagenSrc = '../assets/images/personas/default_female.svg';
             }
             
@@ -907,3 +904,4 @@ Swal.fire({
 </script>
 
 <?php include '../includes/footer.php'; ?>
+n 
