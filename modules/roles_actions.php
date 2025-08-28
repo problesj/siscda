@@ -2,6 +2,7 @@
 require_once '../session_config.php';
 session_start();
 require_once '../config.php';
+require_once dirname(__DIR__) . '/includes/auth_functions.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $action = $_POST['action'];
