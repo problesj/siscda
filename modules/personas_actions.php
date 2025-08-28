@@ -88,13 +88,18 @@ try {
                 }
             }
             
+            // Filtrar solo los campos que no son null para la inserción
+            $datosInsert = array_filter($datos, function($valor) {
+                return $valor !== null && $valor !== '';
+            });
+            
             // Insertar en la base de datos
-            $campos = implode(', ', array_keys($datos));
-            $placeholders = ':' . implode(', :', array_keys($datos));
+            $campos = implode(', ', array_keys($datosInsert));
+            $placeholders = ':' . implode(', :', array_keys($datosInsert));
             
             $sql = "INSERT INTO personas ($campos) VALUES ($placeholders)";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute($datos);
+            $stmt->execute($datosInsert);
             
             $nuevoId = $pdo->lastInsertId();
             
@@ -137,19 +142,22 @@ try {
                 }
             }
             
+            // Filtrar solo los campos que no son null para la actualización
+            $datosUpdate = array_filter($datos, function($valor) {
+                return $valor !== null && $valor !== '';
+            });
+            
             // Actualizar en la base de datos
             $campos = [];
-            foreach ($datos as $campo => $valor) {
-                if ($valor !== null) {
-                    $campos[] = "$campo = :$campo";
-                }
+            foreach ($datosUpdate as $campo => $valor) {
+                $campos[] = "$campo = :$campo";
             }
             
             $sql = "UPDATE personas SET " . implode(', ', $campos) . " WHERE ID = :id";
-            $datos['id'] = $id;
+            $datosUpdate['id'] = $id;
             
             $stmt = $pdo->prepare($sql);
-            $stmt->execute($datos);
+            $stmt->execute($datosUpdate);
             
             $_SESSION['success'] = "Persona actualizada exitosamente";
             header('Location: personas.php');
