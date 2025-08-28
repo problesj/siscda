@@ -114,6 +114,68 @@ tr.fila-blanca {
         vertical-align: top;
     }
     
+    /* Estilos para la columna móvil de asistencias */
+    .table-asistencias .d-table-cell.d-md-none {
+        display: table-cell !important;
+        min-width: 200px;
+        max-width: 300px;
+        padding: 0.75rem;
+        vertical-align: top;
+    }
+    
+    /* Ocultar columnas de desktop en la tabla de asistencias */
+    .table-asistencias .d-none.d-md-table-cell {
+        display: none !important;
+    }
+    
+    /* Asegurar que la columna de checkbox sea visible */
+    .table-asistencias td:first-child {
+        display: table-cell !important;
+        min-width: 60px;
+        width: 60px;
+    }
+    
+    /* Asegurar que la columna Ver sea visible */
+    .table-asistencias td:nth-last-child(2) {
+        display: table-cell !important;
+        min-width: 80px;
+        width: 80px;
+    }
+    
+    /* Estilos para la información de persona en móviles */
+    .table-asistencias .d-table-cell.d-md-none .fw-bold {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #212529;
+        margin-bottom: 0.5rem;
+        line-height: 1.2;
+    }
+    
+    .table-asistencias .d-table-cell.d-md-none .small {
+        font-size: 0.875rem;
+        line-height: 1.4;
+        margin-bottom: 0.25rem;
+    }
+    
+    .table-asistencias .d-table-cell.d-md-none .text-muted {
+        color: #6c757d !important;
+    }
+    
+    .table-asistencias .d-table-cell.d-md-none i {
+        width: 16px;
+        text-align: center;
+        margin-right: 0.5rem;
+    }
+    
+    /* Mejorar espaciado en la columna móvil */
+    .table-asistencias .d-table-cell.d-md-none > div {
+        margin-bottom: 0.25rem;
+    }
+    
+    .table-asistencias .d-table-cell.d-md-none > div:last-child {
+        margin-bottom: 0;
+    }
+    
     /* Estilos para la información del culto en móviles */
     .culto-tipo {
         font-size: 1rem;
@@ -370,6 +432,34 @@ tr.fila-blanca {
         min-height: 44px;
         display: inline-flex;
         align-items: center;
+    }
+    
+    /* Ajustes específicos para móviles pequeños en asistencias */
+    .table-asistencias .d-table-cell.d-md-none {
+        min-width: 180px;
+        max-width: 250px;
+        padding: 0.5rem;
+    }
+    
+    .table-asistencias .d-table-cell.d-md-none .fw-bold {
+        font-size: 0.9rem;
+        margin-bottom: 0.4rem;
+    }
+    
+    .table-asistencias .d-table-cell.d-md-none .small {
+        font-size: 0.8rem;
+        margin-bottom: 0.2rem;
+    }
+    
+    /* Ajustar columnas de checkbox y Ver en móviles pequeños */
+    .table-asistencias td:first-child {
+        min-width: 50px;
+        width: 50px;
+    }
+    
+    .table-asistencias td:nth-last-child(2) {
+        min-width: 70px;
+        width: 70px;
     }
     
     /* Ajustar el tamaño de los iconos */
