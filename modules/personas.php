@@ -73,6 +73,42 @@ try {
             </div>
         </div>
         
+        <!-- Botones de ordenamiento -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="d-flex flex-column flex-md-row justify-content-md-end">
+                    <div class="btn-group-vertical btn-group-sm d-md-none mb-2" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('FAMILIA')">
+                            <i class="fas fa-sort"></i> Familia
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('GRUPO_FAMILIAR')">
+                            <i class="fas fa-sort"></i> Grupo Familiar
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('APELLIDO_PATERNO')">
+                            <i class="fas fa-sort"></i> Apellido
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('NOMBRES')">
+                            <i class="fas fa-sort"></i> Nombres
+                        </button>
+                    </div>
+                    <div class="btn-group d-none d-md-flex" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('FAMILIA')">
+                            <i class="fas fa-sort"></i> Familia
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('GRUPO_FAMILIAR')">
+                            <i class="fas fa-sort"></i> Grupo Familiar
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('APELLIDO_PATERNO')">
+                            <i class="fas fa-sort"></i> Apellido
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('NOMBRES')">
+                            <i class="fas fa-sort"></i> Nombres
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Indicador de estado de búsqueda -->
         <div id="estadoBusqueda" class="alert alert-info" style="display: none;">
             <i class="fas fa-search"></i> Búsqueda en tiempo real activa
