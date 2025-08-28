@@ -291,11 +291,13 @@ function filtrarPersonas() {
     const busqueda = document.getElementById('searchInput').value.toLowerCase().trim();
     const estadoBusqueda = document.getElementById('estadoBusqueda');
     
-    // Mostrar indicador de búsqueda
-    if (busqueda !== '') {
-        estadoBusqueda.style.display = 'block';
-    } else {
-        estadoBusqueda.style.display = 'none';
+    // Mostrar indicador de búsqueda (con verificación de seguridad)
+    if (estadoBusqueda) {
+        if (busqueda !== '') {
+            estadoBusqueda.style.display = 'block';
+        } else {
+            estadoBusqueda.style.display = 'none';
+        }
     }
     
     if (busqueda === '') {
