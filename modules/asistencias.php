@@ -426,6 +426,7 @@ if (isset($_SESSION['error'])) {
                                 <th class="d-none d-md-table-cell">Apellido Paterno</th>
                                 <th class="d-none d-md-table-cell">Familia</th>
                                 <th class="d-none d-md-table-cell">Grupo Familiar</th>
+                                <th class="text-center" style="min-width: 60px;">Ver</th>
                                 <!-- Columna móvil que combina toda la información -->
                                 <th class="d-table-cell d-md-none">Persona</th>
                             </tr>
@@ -476,20 +477,6 @@ if (isset($_SESSION['error'])) {
                                     echo "<td class='d-none d-md-table-cell'>" . $persona['APELLIDO_PATERNO'] . "</td>";
                                     echo "<td class='d-none d-md-table-cell'>" . ($persona['FAMILIA'] ?? '-') . "</td>";
                                     echo "<td class='d-none d-md-table-cell'>" . ($persona['grupo_familiar'] ?? '') . "</td>";
-                                    
-                                    // Botón para visualizar persona
-                                    $tieneImagen = !empty($persona['URL_IMAGEN']);
-                                    $claseBoton = $tieneImagen ? 'btn-info' : 'btn-secondary';
-                                    $icono = $tieneImagen ? 'fa-image' : 'fa-user';
-                                    $titulo = $tieneImagen ? 'Ver foto y datos' : 'Ver datos';
-                                    
-                                    echo "<td class='text-center'>
-                                            <button type='button' class='btn btn-sm $claseBoton' 
-                                                    onclick='verPersonaAsistencia(" . $persona['ID'] . ")' 
-                                                    title='$titulo'>
-                                                <i class='fas $icono'></i>
-                                            </button>
-                                          </td>";
                                     
                                     // Columna móvil que combina toda la información
                                     echo "<td class='d-table-cell d-md-none'>
