@@ -1,9 +1,9 @@
-<!-- Header del sidebar con logo -->
-<div class="sidebar-header text-center py-3 mb-3 border-bottom">
-    <div class="sidebar-logo mb-2">
-        <i class="fas fa-church fa-2x text-primary"></i>
-    </div>
-    <h6 class="sidebar-title text-muted mb-0">Sistema CDA</h6>
+<!-- Header del sidebar con logo y botón de cerrar -->
+<div class="sidebar-header py-3 mb-3 border-bottom">
+            <div class="sidebar-logo text-center">
+            <i class="fas fa-church fa-2x text-primary"></i>
+            <h6 class="sidebar-title text-muted mb-0">Sistema CDA</h6>
+        </div>
 </div>
 
 <div class="position-sticky pt-3">

@@ -26,6 +26,11 @@
     border-radius: 8px;
     margin: 0 10px 15px 10px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 15px !important;
+}
+
+.sidebar-header .d-flex {
+    align-items: center;
 }
 
 .sidebar-logo {
@@ -60,41 +65,112 @@
     flex: 1 !important;
 }
 
-/* Botón del toggle */
+/* Botón del toggle del sidebar (dentro del sidebar) - REMOVIDO */
+/* Ya no se usa, se mantiene solo para compatibilidad */
 #sidebarToggle {
+    display: none !important;
+}
+
+/* Botón del header para mostrar sidebar (siempre visible) */
+#headerSidebarToggle {
     transition: all 0.2s ease-in-out;
-    border-radius: 50%;
+    border-radius: 6px;
     width: 40px;
     height: 40px;
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: center;
-    margin-right: 10px;
+    padding: 0;
+    border: 3px solid white;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 18px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
 }
 
-#sidebarToggle:hover {
+#headerSidebarToggle:hover {
     transform: scale(1.1);
-    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.3);
+    border-color: white;
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.4);
 }
 
-#sidebarToggle:active {
+/* Asegurar que el botón sea siempre visible */
+#headerSidebarToggle {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+/* Debug: hacer el botón muy visible */
+#headerSidebarToggle {
+    background: rgba(255, 255, 255, 0.3) !important;
+    border: 3px solid white !important;
+    color: white !important;
+    font-weight: bold !important;
+}
+
+/* Estilos adicionales para forzar visibilidad */
+#headerSidebarToggle,
+.nav-item:first-child {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 9999 !important;
+}
+
+/* Asegurar que el contenedor del botón sea visible */
+.nav-item:first-child {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Estilos de emergencia para el botón */
+#headerSidebarToggle {
+    min-width: 40px !important;
+    min-height: 40px !important;
+    background: red !important;
+    border: 5px solid yellow !important;
+    color: white !important;
+    font-size: 20px !important;
+    font-weight: bold !important;
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.8) !important;
+}
+
+#headerSidebarToggle:active {
     transform: scale(0.95);
 }
 
 /* Icono del toggle */
-#sidebarToggleIcon {
-    transition: transform 0.3s ease-in-out;
+#toggleIcon {
+    transition: all 0.3s ease-in-out;
+    font-size: 16px;
 }
 
-/* Estado cuando el sidebar está oculto */
-.sidebar-hidden #sidebarToggleIcon {
+/* Animación del icono al cambiar */
+#toggleIcon.fas.fa-bars {
+    transform: rotate(0deg);
+}
+
+#toggleIcon.fas.fa-times {
     transform: rotate(180deg);
+}
+
+/* Estilos específicos para el botón del sidebar */
+.sidebar-toggle-btn {
+    flex-shrink: 0;
+    z-index: 1001;
 }
 
 /* Responsive adjustments */
 @media (max-width: 767.98px) {
-    #sidebarToggle {
-        display: none !important;
+    /* En móviles, el botón del header siempre está visible */
+    #headerSidebarToggle {
+        display: flex !important;
     }
 }
 

@@ -1,6 +1,45 @@
 <?php include '../includes/header.php'; ?>
 <link rel="stylesheet" href="../assets/css/asistencias.css?v=<?php echo time(); ?>">
 <style>
+/* Estilos para elementos fijos */
+.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+/* Controles de búsqueda fijos */
+.controles-fijos {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1001;
+    border-bottom: 2px solid #e9ecef;
+    padding: 1rem 0;
+    margin-bottom: 0;
+}
+
+/* Encabezados de tabla fijos */
+.thead-fijo {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    background: #1e3a8a !important;
+    color: white !important;
+}
+
+/* Tabla con scroll y altura máxima */
+.tabla-con-scroll {
+    max-height: 70vh;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+}
+
+/* Mejorar la apariencia del botón de limpiar */
+.btn-limpiar {
+    border-left: 1px solid #dee2e6;
+}
+
 /* Sobrescribir variables CSS de Bootstrap para la tabla de asistencias */
 .table-asistencias {
     --bs-table-bg: transparent !important;
@@ -372,14 +411,17 @@ if (isset($_SESSION['error'])) {
                 <input type="hidden" name="culto_id" value="<?php echo $culto_id; ?>">
                 <input type="hidden" name="action" value="guardar_asistencias">
                 
-                <!-- Controles de búsqueda y ordenamiento -->
-                <div class="row mb-3">
+                <!-- Controles de búsqueda y ordenamiento - FIJOS -->
+                <div class="row mb-3 controles-fijos">
                     <!-- Búsqueda - Ocupa todo el ancho en móviles -->
                     <div class="col-12 col-md-6 mb-3 mb-md-0">
                         <div class="input-group">
                             <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas..." oninput="filtrarPersonas()">
                             <button class="btn btn-outline-secondary" type="button" onclick="filtrarPersonas()">
                                 <i class="fas fa-search"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-limpiar" type="button" onclick="limpiarBusqueda()" title="Limpiar búsqueda">
+                                <i class="fas fa-times"></i>
                             </button>
                         </div>
                         <small class="text-muted d-none d-md-block">La búsqueda se actualiza automáticamente mientras escribes</small>
@@ -417,9 +459,10 @@ if (isset($_SESSION['error'])) {
                     </div>
                 </div>
                 
-                <div class="table-responsive">
+                <!-- Tabla con encabezados fijos -->
+                <div class="table-responsive tabla-con-scroll">
                     <table class="table table-bordered table-sm table-asistencias">
-                        <thead>
+                        <thead class="thead-fijo">
                             <tr>
                                 <th class="text-center" style="min-width: 80px;">✓</th>
                                 <th class="d-none d-md-table-cell">Nombres</th>
@@ -978,6 +1021,15 @@ if (isset($_SESSION['error'])) {
                             
                             if (resultado.success) {
                                 console.log('Asistencia guardada exitosamente');
+                                
+                                // Actualizar el estado de asistencia en los datos locales
+                                if (window.datosPersonas) {
+                                    const personaIndex = window.datosPersonas.findIndex(p => p.id == personaId);
+                                    if (personaIndex !== -1) {
+                                        window.datosPersonas[personaIndex].asistio = asistio;
+                                    }
+                                }
+                                
                                 // Remover clase de guardando y agregar indicador de éxito
                                 checkbox.classList.remove('guardando');
                                 checkbox.classList.add('guardado');
@@ -1080,9 +1132,31 @@ if (isset($_SESSION['error'])) {
                 
                 // Función para actualizar contador de asistencias
                 function actualizarContadorAsistencias() {
-                    const checkboxes = document.querySelectorAll('input[name="asistencias[]"]:checked');
-                    const totalPersonas = document.querySelectorAll('input[name="asistencias[]"]').length;
-                    const asistenciasMarcadas = checkboxes.length;
+                    console.log('🔄 Actualizando contador de asistencias...');
+                    console.log('📊 Estado de window.datosPersonas:', window.datosPersonas ? window.datosPersonas.length : 'undefined');
+                    
+                    // Usar los datos reales de la base de datos si están disponibles
+                    let totalPersonas = 0;
+                    let asistenciasMarcadas = 0;
+                    
+                    if (window.datosPersonas && window.datosPersonas.length > 0) {
+                        // El total de personas es el número real en la base de datos (todas las páginas)
+                        totalPersonas = window.datosPersonas.length;
+                        
+                        // Contar TODAS las asistencias marcadas de TODAS las páginas
+                        asistenciasMarcadas = window.datosPersonas.filter(persona => persona.asistio).length;
+                        
+                        console.log(`✅ Contador actualizado con datos de BD: ${asistenciasMarcadas}/${totalPersonas} personas (${Math.round((asistenciasMarcadas / totalPersonas) * 100)}%)`);
+                        console.log(`📋 Muestra de datos:`, window.datosPersonas.slice(0, 3).map(p => ({ id: p.id, nombres: p.nombres, asistio: p.asistio })));
+                    } else {
+                        // Fallback: contar checkboxes del DOM (solo para casos de emergencia)
+                        const checkboxes = document.querySelectorAll('input[name="asistencias[]"]:checked');
+                        const totalCheckboxes = document.querySelectorAll('input[name="asistencias[]"]').length;
+                        totalPersonas = totalCheckboxes;
+                        asistenciasMarcadas = checkboxes.length;
+                        console.warn('⚠️ Usando fallback del DOM para el contador');
+                        console.warn('⚠️ window.datosPersonas no está disponible o está vacío');
+                    }
                     
                     // Buscar o crear el contador
                     let contador = document.getElementById('contadorAsistencias');
@@ -1108,6 +1182,8 @@ if (isset($_SESSION['error'])) {
                             </small>
                         `;
                     }
+                    
+                    console.log('🎯 Contador final:', `${asistenciasMarcadas}/${totalPersonas} personas`);
                 }
                 
 
@@ -1162,6 +1238,7 @@ if (isset($_SESSION['error'])) {
                         <button type="button" class="btn btn-primary btn-lg w-100 w-md-auto ms-md-2 mt-2 mt-md-0" data-bs-toggle="modal" data-bs-target="#modalAgregarPersona">
                             <i class="fas fa-plus"></i> Agregar Persona
                         </button>
+
                         <a href="asistencias.php" class="btn btn-secondary btn-lg w-100 w-md-auto ms-md-2 mt-2 mt-md-0">
                             <i class="fas fa-arrow-left"></i> Volver
                         </a>
@@ -1502,6 +1579,38 @@ function filtrarPersonas() {
     }
 }
 
+// Función para limpiar la búsqueda
+function limpiarBusqueda() {
+    const searchInput = document.getElementById('searchInput');
+    const estadoBusqueda = document.getElementById('estadoBusqueda');
+    
+    // Limpiar el campo de búsqueda
+    searchInput.value = '';
+    
+    // Ocultar indicador de búsqueda
+    estadoBusqueda.style.display = 'none';
+    
+    // Restaurar todos los datos
+    datosFiltrados = [...datosPersonas];
+    
+    // Reiniciar a la primera página
+    paginaActual = 1;
+    
+    // Aplicar ordenamiento y mostrar resultados
+    aplicarOrdenamientoYFiltrado();
+    
+    // Actualizar información de registros
+    const info = document.getElementById('infoRegistros');
+    if (info) {
+        info.textContent = `Mostrando todas las personas (${datosPersonas.length} total)`;
+    }
+    
+    // Enfocar el campo de búsqueda
+    searchInput.focus();
+    
+    console.log('🔍 Búsqueda limpiada, mostrando todas las personas');
+}
+
 // Función para cambiar el número de items por página
 function cambiarItemsPorPagina() {
     itemsPorPagina = parseInt(document.getElementById('itemsPorPagina').value);
@@ -1695,6 +1804,14 @@ function aplicarOrdenamientoYFiltrado() {
                             // Obtener el estado actual de asistencia para esta persona
                             const asistio = estadosAsistencias[persona.id] || false;
                             
+                            // Actualizar el estado de asistencia en los datos locales
+                            if (window.datosPersonas) {
+                                const personaIndex = window.datosPersonas.findIndex(p => p.id == persona.id);
+                                if (personaIndex !== -1) {
+                                    window.datosPersonas[personaIndex].asistio = asistio;
+                                }
+                            }
+                            
                             const row = document.createElement('tr');
                             row.setAttribute('data-debug', `Familia: ${familiaPersona}, Color: ${colorHex}, Alternado: ${colorAlternado}`);
                             row.style.setProperty('background-color', colorHex, 'important');
@@ -1743,6 +1860,9 @@ function aplicarOrdenamientoYFiltrado() {
                             // Resetear el flag para permitir nueva inicialización en cada cambio de página
                             window.guardadoAutomaticoInicializado = false;
                             inicializarGuardadoAutomatico();
+                            
+                            // Actualizar el contador de asistencias con los datos reales
+                            actualizarContadorAsistencias();
                         }, 100);
                     });
                 }
@@ -1881,54 +2001,63 @@ function cargarDatosIniciales() {
     
     // Solo ejecutar si estamos en la vista de tomar asistencia (con checkboxes)
     if (tablaAsistencias) {
-        const filas = tablaAsistencias.querySelectorAll('tbody tr');
-        datosPersonas = [];
-        
-        // Mantener el orden original de las filas tal como aparecen en el HTML
-        filas.forEach((fila, index) => {
-            const celdas = fila.querySelectorAll('td');
-            if (celdas.length >= 5) {
-                const checkbox = celdas[0].querySelector('input[type="checkbox"]');
-                if (checkbox) { // Verificar que el checkbox existe
-                    const nombres = celdas[1].textContent.trim();
-                    const apellidoPaterno = celdas[2].textContent.trim();
-                    const familia = celdas[3].textContent.trim();
-                    const grupoFamiliar = celdas[4].textContent.trim();
-                    
-                    // Solo agregar si hay datos válidos
-                    if (nombres && apellidoPaterno) {
-                        // Buscar información de imagen en la fila original
-                        const botonVer = celdas[5]?.querySelector('button');
-                        const tieneImagen = botonVer && botonVer.classList.contains('btn-info');
+        // Cargar TODAS las personas de la base de datos para el contador
+        cargarTodasLasPersonas().then(() => {
+            console.log('✅ Todas las personas cargadas para el contador:', datosPersonas.length);
+            
+            // También cargar las filas visibles para la tabla actual
+            const filas = tablaAsistencias.querySelectorAll('tbody tr');
+            const datosVisibles = [];
+            
+            // Mantener el orden original de las filas tal como aparecen en el HTML
+            filas.forEach((fila, index) => {
+                const celdas = fila.querySelectorAll('td');
+                if (celdas.length >= 5) {
+                    const checkbox = celdas[0].querySelector('input[type="checkbox"]');
+                    if (checkbox) { // Verificar que el checkbox existe
+                        const nombres = celdas[1].textContent.trim();
+                        const apellidoPaterno = celdas[2].textContent.trim();
+                        const familia = celdas[3].textContent.trim();
+                        const grupoFamiliar = celdas[4].textContent.trim();
                         
-                        // Obtener la URL real de la imagen si existe
-                        let imagenUrl = null;
-                        if (tieneImagen) {
-                            // Buscar la URL real de la imagen en la fila original
-                            // La URL está en el atributo data-url del botón o en algún campo oculto
-                            // Por ahora, intentaremos obtenerla de la base de datos más adelante
-                            imagenUrl = null; // Se cargará dinámicamente cuando se abra el modal
+                        // Solo agregar si hay datos válidos
+                        if (nombres && apellidoPaterno) {
+                            // Buscar información de imagen en la fila original
+                            const botonVer = celdas[5]?.querySelector('button');
+                            const tieneImagen = botonVer && botonVer.classList.contains('btn-info');
+                            
+                            // Obtener la URL real de la imagen si existe
+                            let imagenUrl = null;
+                            if (tieneImagen) {
+                                // Buscar la URL real de la imagen en la fila original
+                                // La URL está en el atributo data-url del botón o en algún campo oculto
+                                // Por ahora, intentaremos obtenerla de la base de datos más adelante
+                                imagenUrl = null; // Se cargará dinámicamente cuando se abra el modal
+                            }
+                            
+                            datosVisibles.push({
+                                id: checkbox.value,
+                                nombres: nombres,
+                                apellidoPaterno: apellidoPaterno,
+                                familia: familia === '-' ? '' : familia,
+                                grupoFamiliar: grupoFamiliar === '' ? '' : grupoFamiliar,
+                                asistio: checkbox.checked,
+                                ordenOriginal: index, // Mantener el orden original
+                                tieneImagen: tieneImagen, // Información sobre si tiene imagen
+                                imagenUrl: imagenUrl // URL de la imagen si existe
+                            });
                         }
-                        
-                        datosPersonas.push({
-                            id: checkbox.value,
-                            nombres: nombres,
-                            apellidoPaterno: apellidoPaterno,
-                            familia: familia === '-' ? '' : familia,
-                            grupoFamiliar: grupoFamiliar === '' ? '' : grupoFamiliar,
-                            asistio: checkbox.checked,
-                            ordenOriginal: index, // Mantener el orden original
-                            tieneImagen: tieneImagen, // Información sobre si tiene imagen
-                            imagenUrl: imagenUrl // URL de la imagen si existe
-                        });
                     }
                 }
-            }
+            });
+            
+            console.log('Datos visibles cargados:', datosVisibles.length, 'personas');
+            datosFiltrados = [...datosVisibles];
+            aplicarOrdenamientoYFiltrado();
+            
+            // Actualizar el contador con todas las personas
+            actualizarContadorAsistencias();
         });
-        
-        console.log('Datos cargados:', datosPersonas.length, 'personas');
-        datosFiltrados = [...datosPersonas];
-        aplicarOrdenamientoYFiltrado();
     } else if (tablaCultos) {
         console.log('Vista de lista de cultos - no se cargan datos de personas');
         // En la vista de cultos, no necesitamos cargar datos de personas
@@ -1937,6 +2066,81 @@ function cargarDatosIniciales() {
     } else {
         console.log('No se encontró tabla de asistencias ni de cultos');
     }
+}
+
+// Función para cargar TODAS las personas de la base de datos
+function cargarTodasLasPersonas() {
+    return new Promise((resolve, reject) => {
+        const cultoId = <?php echo $culto_id ?: 'null'; ?>;
+        if (!cultoId) {
+            console.error('No hay culto_id para cargar personas');
+            datosPersonas = [];
+            resolve();
+            return;
+        }
+        
+        console.log('🔄 Cargando TODAS las personas de la base de datos para culto:', cultoId);
+        
+        // Crear FormData para la consulta
+        const formData = new FormData();
+        formData.append('action', 'obtener_todas_personas');
+        formData.append('culto_id', cultoId);
+        
+        fetch('asistencias_actions.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.text();
+        })
+        .then(data => {
+            console.log('📥 Respuesta recibida del servidor:', data);
+            
+            if (!data || data.trim() === '') {
+                console.warn('Respuesta vacía al cargar todas las personas');
+                datosPersonas = [];
+                resolve();
+                return;
+            }
+            
+            try {
+                const resultado = JSON.parse(data);
+                console.log('🔍 Resultado parseado:', resultado);
+                
+                if (resultado.success) {
+                    console.log('✅ Todas las personas cargadas:', resultado.personas.length);
+                    console.log('📋 Primeras 3 personas:', resultado.personas.slice(0, 3));
+                    
+                    // Asignar a la variable global
+                    window.datosPersonas = resultado.personas;
+                    datosPersonas = resultado.personas;
+                    
+                    console.log('🔒 Variable global datosPersonas asignada:', window.datosPersonas.length, 'personas');
+                    resolve();
+                } else {
+                    console.warn('❌ Error al cargar todas las personas:', resultado.message);
+                    datosPersonas = [];
+                    window.datosPersonas = [];
+                    resolve();
+                }
+            } catch (e) {
+                console.error('❌ Error al parsear respuesta de todas las personas:', e);
+                console.error('📄 Respuesta problemática:', data);
+                datosPersonas = [];
+                window.datosPersonas = [];
+                resolve();
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error al cargar todas las personas:', error);
+            datosPersonas = [];
+            window.datosPersonas = [];
+            resolve();
+        });
+    });
 }
 
 // Inicializar cuando se carga la página
@@ -2058,6 +2262,8 @@ function mostrarDatosPersonaAsistencia(personaId) {
         datosPersona.innerHTML = '<div class="alert alert-danger">No se pudo cargar la información de la persona.</div>';
     }
 }
+
+
 
 // Mostrar alertas de sesión con SweetAlert2
 <?php if ($successMessage): ?>

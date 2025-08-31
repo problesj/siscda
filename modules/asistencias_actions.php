@@ -264,6 +264,78 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         header('Location: asistencias.php?culto_id=' . $culto_id);
         exit();
     }
+    
+    if ($action == 'obtener_todas_personas') {
+        // Obtener TODAS las personas de la base de datos para el contador
+        // Limpiar cualquier salida previa
+        if (ob_get_level()) ob_end_clean();
+        header('Content-Type: application/json');
+        header('Cache-Control: no-cache, must-revalidate');
+        
+        error_log("Obteniendo todas las personas para culto: " . json_encode($_POST));
+        
+        try {
+            $pdo = conectarDB();
+            
+            $culto_id = $_POST['culto_id'] ?? null;
+            
+            if (!$culto_id) {
+                echo json_encode(['success' => false, 'message' => 'ID de culto requerido']);
+                exit();
+            }
+            
+            // Consultar TODAS las personas con su estado de asistencia para este culto
+            $sql = "SELECT 
+                        p.ID,
+                        p.NOMBRES,
+                        p.APELLIDO_PATERNO,
+                        p.FAMILIA,
+                        COALESCE(gf.NOMBRE, '') as GRUPO_FAMILIAR,
+                        CASE WHEN a.PERSONA_ID IS NOT NULL THEN 1 ELSE 0 END as asistio
+                    FROM personas p
+                    LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID
+                    LEFT JOIN asistencias a ON p.ID = a.PERSONA_ID AND a.CULTO_ID = ?
+                    ORDER BY 
+                        CASE WHEN gf.NOMBRE IS NOT NULL AND gf.NOMBRE != '' THEN 1 ELSE 2 END,
+                        gf.NOMBRE ASC,
+                        CASE WHEN p.FAMILIA IS NOT NULL AND p.FAMILIA != '' THEN 1 ELSE 2 END,
+                        p.FAMILIA ASC,
+                        CASE WHEN p.APELLIDO_PATERNO IS NOT NULL AND p.APELLIDO_PATERNO != '' THEN 1 ELSE 2 END,
+                        p.APELLIDO_PATERNO ASC";
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$culto_id]);
+            $personas = $stmt->fetchAll();
+            
+            // Formatear los datos para el frontend
+            $personasFormateadas = [];
+            foreach ($personas as $persona) {
+                $personasFormateadas[] = [
+                    'id' => $persona['ID'],
+                    'nombres' => $persona['NOMBRES'],
+                    'apellidoPaterno' => $persona['APELLIDO_PATERNO'],
+                    'familia' => $persona['FAMILIA'] ?: '',
+                    'grupoFamiliar' => $persona['GRUPO_FAMILIAR'] ?: '',
+                    'asistio' => (bool)$persona['asistio']
+                ];
+            }
+            
+            $response = [
+                'success' => true,
+                'personas' => $personasFormateadas,
+                'total' => count($personasFormateadas),
+                'message' => 'Todas las personas obtenidas correctamente'
+            ];
+            
+            error_log("Respuesta obtener_todas_personas: " . count($personasFormateadas) . " personas encontradas");
+            echo json_encode($response);
+            
+        } catch (PDOException $e) {
+            error_log("Error en obtener_todas_personas: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit();
+    }
 }
 
 header('Location: asistencias.php');

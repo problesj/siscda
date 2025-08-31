@@ -38,8 +38,39 @@ $baseUrl = getBaseUrl();
     <!-- Estilos del menú móvil -->
     <link href="<?php echo $baseUrl; ?>/assets/css/mobile-menu.css" rel="stylesheet">
     
-    <!-- Estilos del toggle del sidebar -->
+    <!-- Estilos del toggle del sidebar (cargado después de Bootstrap para prioridad) -->
     <link href="<?php echo $baseUrl; ?>/assets/css/sidebar-toggle.css" rel="stylesheet">
+    
+    <!-- Estilos inline de emergencia para el botón (máxima prioridad) -->
+    <style>
+        /* Estilos inline de emergencia para el botón */
+        #headerSidebarToggle {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            background: red !important;
+            border: 5px solid yellow !important;
+            color: white !important;
+            font-size: 20px !important;
+            font-weight: bold !important;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.8) !important;
+            z-index: 9999 !important;
+            position: relative !important;
+        }
+        
+        .nav-item:first-child {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        /* Forzar visibilidad del botón */
+        button#headerSidebarToggle {
+            display: inline-flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+    </style>
     
     <!-- Script del menú móvil -->
     <script src="<?php echo $baseUrl; ?>/assets/js/mobile-menu.js"></script>
@@ -49,18 +80,18 @@ $baseUrl = getBaseUrl();
     
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">
+            <!-- Botón para mostrar/ocultar sidebar (siempre visible) -->
+            <div class="nav-item me-3">
+                <button class="btn btn-outline-light btn-sm" id="headerSidebarToggle" onclick="toggleSidebar()" title="Mostrar/ocultar menú lateral">
+                    <i class="fas fa-bars" id="toggleIcon"></i>
+                </button>
+            </div>
+            
             <a class="navbar-brand" href="<?php echo $baseUrl; ?>/dashboard.php">
                 <i class="fas fa-church"></i> Sistema CDA
             </a>
             
             <div class="navbar-nav ms-auto">
-                <!-- Botón para ocultar/mostrar sidebar (desktop/tablet) -->
-                <div class="nav-item d-none d-md-block">
-                    <button class="btn btn-outline-light btn-sm" id="sidebarToggle" onclick="toggleSidebar()" title="Ocultar/Mostrar menú lateral">
-                        <i class="fas fa-bars" id="sidebarToggleIcon"></i>
-                    </button>
-                </div>
-                
                 <!-- Botón del menú móvil -->
                 <div class="nav-item d-md-none">
                     <button class="mobile-menu-toggle" onclick="openMobileMenu()">
