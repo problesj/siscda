@@ -336,6 +336,78 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         exit();
     }
+    
+    if ($action == 'obtener_asistentes_culto') {
+        // Obtener asistentes de un culto específico
+        // Limpiar cualquier salida previa
+        if (ob_get_level()) ob_end_clean();
+        header('Content-Type: application/json');
+        header('Cache-Control: no-cache, must-revalidate');
+        
+        error_log("Obteniendo asistentes del culto: " . json_encode($_POST));
+        
+        try {
+            $pdo = conectarDB();
+            
+            $culto_id = $_POST['culto_id'] ?? null;
+            
+            if (!$culto_id) {
+                echo json_encode(['success' => false, 'message' => 'ID de culto requerido']);
+                exit();
+            }
+            
+            // Obtener asistentes del culto con información completa
+            $stmt = $pdo->prepare("
+                SELECT 
+                    p.NOMBRES,
+                    p.APELLIDO_PATERNO,
+                    p.APELLIDO_MATERNO,
+                    p.FAMILIA,
+                    gf.NOMBRE as GRUPO_FAMILIAR,
+                    p.OBSERVACIONES
+                FROM asistencias a
+                INNER JOIN personas p ON a.PERSONA_ID = p.ID
+                LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID
+                WHERE a.CULTO_ID = ?
+                ORDER BY 
+                    CASE WHEN gf.NOMBRE IS NOT NULL AND gf.NOMBRE != '' THEN 1 ELSE 2 END,
+                    gf.NOMBRE ASC,
+                    CASE WHEN p.FAMILIA IS NOT NULL AND p.FAMILIA != '' THEN 1 ELSE 2 END,
+                    p.FAMILIA ASC,
+                    CASE WHEN p.APELLIDO_PATERNO IS NOT NULL AND p.APELLIDO_PATERNO != '' THEN 1 ELSE 2 END,
+                    p.APELLIDO_PATERNO ASC
+            ");
+            $stmt->execute([$culto_id]);
+            $asistentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Formatear los datos para la respuesta
+            $asistentesFormateados = [];
+            foreach ($asistentes as $asistente) {
+                $asistentesFormateados[] = [
+                    'nombres' => $asistente['NOMBRES'],
+                    'apellidos' => trim($asistente['APELLIDO_PATERNO'] . ' ' . $asistente['APELLIDO_MATERNO']),
+                    'familia' => $asistente['FAMILIA'],
+                    'grupo_familiar' => $asistente['GRUPO_FAMILIAR'],
+                    'observaciones' => $asistente['OBSERVACIONES']
+                ];
+            }
+            
+            $response = [
+                'success' => true,
+                'asistentes' => $asistentesFormateados,
+                'total' => count($asistentesFormateados),
+                'message' => 'Asistentes obtenidos correctamente'
+            ];
+            
+            error_log("Respuesta obtener_asistentes_culto: " . count($asistentesFormateados) . " asistentes encontrados");
+            echo json_encode($response);
+            
+        } catch (PDOException $e) {
+            error_log("Error en obtener_asistentes_culto: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit();
+    }
 }
 
 header('Location: asistencias.php');

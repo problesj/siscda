@@ -1,5 +1,31 @@
+<?php 
+// Forzar recarga de caché
+$version = time();
+?>
 <?php include '../includes/header.php'; ?>
-<link rel="stylesheet" href="../assets/css/asistencias.css?v=<?php echo time(); ?>">
+<link rel="stylesheet" href="../assets/css/asistencias.css?v=<?php echo $version; ?>">
+
+<!-- Librería para generar archivos Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// Forzar recarga de caché para este archivo
+console.log('Cargando módulo de asistencias - versión: <?php echo $version; ?>');
+// Verificar que las funciones estén disponibles
+window.addEventListener('load', function() {
+    console.log('Verificando funciones...');
+    if (typeof verAsistentesCulto === 'function') {
+        console.log('✅ Función verAsistentesCulto está disponible');
+    } else {
+        console.log('❌ Función verAsistentesCulto NO está disponible');
+    }
+    
+    if (document.getElementById('modalAsistentesCulto')) {
+        console.log('✅ Modal modalAsistentesCulto está disponible');
+    } else {
+        console.log('❌ Modal modalAsistentesCulto NO está disponible');
+    }
+});
+</script>
 <style>
 /* Estilos para elementos fijos */
 .sticky-top {
@@ -638,15 +664,15 @@ if (isset($_SESSION['error'])) {
                     
                     // Buscar en los datos existentes
                     const sugerencias = [];
-                    const textoLower = texto.toLowerCase();
+                    const textoNormalizado = normalizarTexto(texto);
                     
                     datosPersonas.forEach(persona => {
-                        if (tipo === 'nombres' && persona.nombres && persona.nombres.toLowerCase().startsWith(textoLower)) {
+                        if (tipo === 'nombres' && persona.nombres && normalizarTexto(persona.nombres).startsWith(textoNormalizado)) {
                             sugerencias.push({
                                 texto: persona.nombres,
                                 subtitulo: persona.apellidoPaterno
                             });
-                        } else if (tipo === 'apellidos' && persona.apellidoPaterno && persona.apellidoPaterno.toLowerCase().startsWith(textoLower)) {
+                        } else if (tipo === 'apellidos' && persona.apellidoPaterno && normalizarTexto(persona.apellidoPaterno).startsWith(textoNormalizado)) {
                             sugerencias.push({
                                 texto: persona.apellidoPaterno,
                                 subtitulo: persona.nombres
@@ -1311,9 +1337,9 @@ if (isset($_SESSION['error'])) {
                                             <a href='?culto_id=" . $row['ID'] . "' class='btn btn-sm btn-success w-100 w-md-auto' title='Tomar Asistencia'>
                                                 <i class='fas fa-clipboard-check'></i> <span class='d-none d-sm-inline'>Tomar Asistencia</span>
                                             </a>
-                                            <a href='asistencias_ver.php?culto_id=" . $row['ID'] . "' class='btn btn-sm btn-info w-100 w-md-auto mt-1 mt-md-0' title='Ver Asistencias'>
+                                            <button onclick='verAsistentesCulto(" . $row['ID'] . ", \"" . addslashes($row['TIPO_CULTO']) . "\", \"" . date('d/m/Y', strtotime($row['FECHA'])) . "\")' class='btn btn-sm btn-info w-100 w-md-auto mt-1 mt-md-0' title='Ver Asistentes'>
                                                 <i class='fas fa-eye'></i> <span class='d-none d-sm-inline'>Ver</span>
-                                            </a>
+                                            </button>
                                         </div>
                                       </td>";
                                 
@@ -1531,6 +1557,19 @@ function actualizarBotonesOrdenamiento() {
     }
 }
 
+// Función para normalizar texto (remover acentos, ñ y caracteres especiales)
+function normalizarTexto(texto) {
+    if (!texto) return '';
+    
+    return texto
+        .toLowerCase()
+        .normalize('NFD') // Normalizar a forma de descomposición
+        .replace(/[\u0300-\u036f]/g, '') // Remover diacríticos (acentos)
+        .replace(/ñ/g, 'n') // Reemplazar ñ por n
+        .replace(/Ñ/g, 'N') // Reemplazar Ñ por N
+        .replace(/[^a-z0-9\s]/g, ''); // Remover caracteres especiales excepto espacios
+}
+
 // Función para filtrar personas
 function filtrarPersonas() {
     const busqueda = document.getElementById('searchInput').value.toLowerCase().trim();
@@ -1547,17 +1586,20 @@ function filtrarPersonas() {
         // Si no hay búsqueda, mostrar todas las personas
         datosFiltrados = [...datosPersonas];
     } else {
+        // Normalizar el texto de búsqueda
+        const busquedaNormalizada = normalizarTexto(busqueda);
+        
         // Filtrar por nombre, apellido, familia o grupo familiar
         datosFiltrados = datosPersonas.filter(persona => {
-            const nombres = (persona.nombres || '').toLowerCase();
-            const apellidoPaterno = (persona.apellidoPaterno || '').toLowerCase();
-            const familia = (persona.familia || '').toLowerCase();
-            const grupoFamiliar = (persona.grupoFamiliar || '').toLowerCase();
+            const nombres = normalizarTexto(persona.nombres || '');
+            const apellidoPaterno = normalizarTexto(persona.apellidoPaterno || '');
+            const familia = normalizarTexto(persona.familia || '');
+            const grupoFamiliar = normalizarTexto(persona.grupoFamiliar || '');
             
-            return nombres.includes(busqueda) ||
-                   apellidoPaterno.includes(busqueda) ||
-                   familia.includes(busqueda) ||
-                   grupoFamiliar.includes(busqueda);
+            return nombres.includes(busquedaNormalizada) ||
+                   apellidoPaterno.includes(busquedaNormalizada) ||
+                   familia.includes(busquedaNormalizada) ||
+                   grupoFamiliar.includes(busquedaNormalizada);
         });
     }
     
@@ -2265,6 +2307,178 @@ function mostrarDatosPersonaAsistencia(personaId) {
 
 
 
+// Variables globales para exportación
+let datosAsistentesExportar = [];
+let cultoActual = {};
+
+// Funciones para ver asistentes del culto
+function verAsistentesCulto(cultoId, tipoCulto, fecha) {
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalAsistentesCulto'));
+    modal.show();
+    
+    // Almacenar datos del culto para exportación
+    cultoActual = {
+        id: cultoId,
+        tipo: tipoCulto,
+        fecha: fecha
+    };
+    
+    // Actualizar información del culto
+    document.getElementById('tipoCultoAsistentes').textContent = tipoCulto;
+    document.getElementById('fechaCultoAsistentes').textContent = fecha;
+    
+    // Mostrar indicador de carga
+    document.getElementById('cargandoAsistentesCulto').style.display = 'block';
+    document.getElementById('tablaAsistentesCulto').style.display = 'none';
+    document.getElementById('sinAsistentesCulto').style.display = 'none';
+    document.getElementById('btnExportarExcel').style.display = 'none';
+    
+    // Cargar datos de asistentes
+    cargarAsistentesCulto(cultoId);
+}
+
+function cargarAsistentesCulto(cultoId) {
+    const formData = new FormData();
+    formData.append('action', 'obtener_asistentes_culto');
+    formData.append('culto_id', cultoId);
+    
+    fetch('asistencias_actions.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Ocultar indicador de carga
+        document.getElementById('cargandoAsistentesCulto').style.display = 'none';
+        
+        if (data.success) {
+            // Actualizar contador de asistentes
+            document.getElementById('totalAsistentes').textContent = data.total || 0;
+            
+            if (data.asistentes && data.asistentes.length > 0) {
+                mostrarTablaAsistentesCulto(data.asistentes);
+            } else {
+                document.getElementById('sinAsistentesCulto').style.display = 'block';
+            }
+        } else {
+            console.error('Error al cargar asistentes:', data.error);
+            SwalUtils.showError('Error al cargar la lista de asistentes: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error en la petición:', error);
+        document.getElementById('cargandoAsistentesCulto').style.display = 'none';
+        SwalUtils.showError('Error al cargar la lista de asistentes');
+    });
+}
+
+function mostrarTablaAsistentesCulto(asistentes) {
+    const tbody = document.getElementById('cuerpoTablaAsistentesCulto');
+    tbody.innerHTML = '';
+    
+    // Almacenar datos para exportación
+    datosAsistentesExportar = asistentes;
+    
+    asistentes.forEach(asistente => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${asistente.nombres || '-'}</td>
+            <td>${asistente.apellidos || '-'}</td>
+            <td>${asistente.familia || '-'}</td>
+            <td>${asistente.grupo_familiar || '-'}</td>
+            <td>${asistente.observaciones || '-'}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    document.getElementById('tablaAsistentesCulto').style.display = 'table';
+    document.getElementById('btnExportarExcel').style.display = 'inline-block';
+}
+
+// Función para exportar a Excel
+function exportarAsistentesExcel() {
+    if (datosAsistentesExportar.length === 0) {
+        SwalUtils.showError('No hay datos para exportar');
+        return;
+    }
+    
+    try {
+        // Verificar que la librería XLSX esté disponible
+        if (typeof XLSX === 'undefined') {
+            SwalUtils.showError('Error: La librería Excel no está disponible');
+            return;
+        }
+        
+        // Crear el workbook
+        const wb = XLSX.utils.book_new();
+        
+        // Preparar los datos para la hoja de cálculo
+        const datos = [];
+        
+        // Agregar encabezado con información del culto
+        datos.push(['LISTA DE ASISTENTES']);
+        datos.push(['Tipo de Culto:', cultoActual.tipo]);
+        datos.push(['Fecha:', cultoActual.fecha]);
+        datos.push(['Total Asistentes:', datosAsistentesExportar.length]);
+        datos.push([]); // Línea en blanco
+        
+        // Agregar encabezados de la tabla
+        datos.push(['Número', 'Nombre', 'Apellidos']);
+        
+        // Agregar datos de los asistentes
+        datosAsistentesExportar.forEach((asistente, index) => {
+            datos.push([
+                index + 1,
+                asistente.nombres || '',
+                asistente.apellidos || ''
+            ]);
+        });
+        
+        // Crear la hoja de cálculo
+        const ws = XLSX.utils.aoa_to_sheet(datos);
+        
+        // Configurar el ancho de las columnas
+        ws['!cols'] = [
+            { wch: 8 },  // Número
+            { wch: 25 }, // Nombre
+            { wch: 30 }  // Apellidos
+        ];
+        
+        // Agregar la hoja al workbook
+        XLSX.utils.book_append_sheet(wb, ws, 'Asistentes');
+        
+        // Generar el archivo Excel
+        const nombreArchivo = 'Asistentes_' + cultoActual.tipo.replace(/[^a-zA-Z0-9]/g, '_') + '_' + cultoActual.fecha.replace(/\//g, '-') + '.xlsx';
+        XLSX.writeFile(wb, nombreArchivo);
+        
+        SwalUtils.showSuccess('Archivo Excel generado exitosamente');
+        
+    } catch (error) {
+        console.error('Error al generar archivo Excel:', error);
+        SwalUtils.showError('Error al generar el archivo Excel: ' + error.message);
+    }
+}
+
+// Limpiar modal cuando se cierre
+document.addEventListener('DOMContentLoaded', function() {
+    const modalAsistentesCulto = document.getElementById('modalAsistentesCulto');
+    if (modalAsistentesCulto) {
+        modalAsistentesCulto.addEventListener('hidden.bs.modal', function () {
+            document.getElementById('cuerpoTablaAsistentesCulto').innerHTML = '';
+            document.getElementById('totalAsistentes').textContent = '0';
+            document.getElementById('tablaAsistentesCulto').style.display = 'none';
+            document.getElementById('sinAsistentesCulto').style.display = 'none';
+            document.getElementById('cargandoAsistentesCulto').style.display = 'none';
+            document.getElementById('btnExportarExcel').style.display = 'none';
+            
+            // Limpiar datos de exportación
+            datosAsistentesExportar = [];
+            cultoActual = {};
+        });
+    }
+});
+
 // Mostrar alertas de sesión con SweetAlert2
 <?php if ($successMessage): ?>
 SwalUtils.showSuccess('<?php echo addslashes($successMessage); ?>');
@@ -2308,5 +2522,110 @@ SwalUtils.showError('<?php echo addslashes($errorMessage); ?>');
         </div>
     </div>
 </div>
+
+<!-- Modal para Ver Asistentes del Culto -->
+<div class="modal fade" id="modalAsistentesCulto" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Lista de Asistentes del Culto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="info-culto">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <strong>Tipo de Culto:</strong> <span id="tipoCultoAsistentes"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Fecha:</strong> <span id="fechaCultoAsistentes"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Total Asistentes:</strong> <span id="totalAsistentes" class="badge bg-primary">0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="tablaAsistentesCulto">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Nombres</th>
+                                <th>Apellidos</th>
+                                <th>Familia</th>
+                                <th>Grupo Familiar</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoTablaAsistentesCulto">
+                            <!-- Los datos se cargarán dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="text-center mt-3" id="sinAsistentesCulto" style="display: none;">
+                    <p class="text-muted">No hay asistentes registrados para este culto.</p>
+                </div>
+                
+                <div class="text-center mt-3" id="cargandoAsistentesCulto">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando lista de asistentes...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="btnExportarExcel" onclick="exportarAsistentesExcel()" style="display: none;">
+                    <i class="fas fa-file-excel"></i> Exportar a Excel
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Estilos para el modal de asistentes del culto */
+#modalAsistentesCulto .modal-dialog {
+    max-width: 900px;
+}
+
+#modalAsistentesCulto .table th {
+    background-color: #343a40;
+    color: white;
+    font-weight: 600;
+    border: none;
+}
+
+#modalAsistentesCulto .table td {
+    vertical-align: middle;
+    border-color: #dee2e6;
+}
+
+#modalAsistentesCulto .table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+#cargandoAsistentesCulto {
+    padding: 40px 20px;
+}
+
+#sinAsistentesCulto {
+    padding: 40px 20px;
+    color: #6c757d;
+}
+
+.info-culto {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.info-culto strong {
+    color: #495057;
+}
+</style>
 
 <?php include '../includes/footer.php'; ?>

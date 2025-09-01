@@ -1,5 +1,49 @@
 <?php include '../includes/header.php'; ?>
 
+<style>
+/* Estilos para el modal de asistentes */
+#modalAsistentes .modal-dialog {
+    max-width: 900px;
+}
+
+#modalAsistentes .table th {
+    background-color: #343a40;
+    color: white;
+    font-weight: 600;
+    border: none;
+}
+
+#modalAsistentes .table td {
+    vertical-align: middle;
+    border-color: #dee2e6;
+}
+
+#modalAsistentes .table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+#cargandoAsistentes {
+    padding: 40px 20px;
+}
+
+#sinAsistentes {
+    padding: 40px 20px;
+    color: #6c757d;
+}
+
+.info-culto {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.info-culto strong {
+    color: #495057;
+}
+</style>
+
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Gestión de Cultos</h1>
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCulto">
@@ -64,6 +108,7 @@ if (isset($_SESSION['error'])) {
                             echo "<button class='btn btn-sm btn-success' onclick='tomarAsistencia(" . $row['ID'] . ")'>";
                             echo "<i class='fas fa-clipboard-check'></i>";
                             echo "</button> ";
+
                             echo "<button class='btn btn-sm btn-danger' onclick='eliminarCulto(" . $row['ID'] . ")'>";
                             echo "<i class='fas fa-trash'></i>";
                             echo "</button>";
@@ -121,7 +166,19 @@ if (isset($_SESSION['error'])) {
     </div>
 </div>
 
+
+
 <script>
+// Limpiar modal cuando se cierre
+document.getElementById('modalAsistentes').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('cuerpoTablaAsistentes').innerHTML = '';
+    document.getElementById('totalAsistentes').textContent = '0';
+    document.getElementById('tablaAsistentes').style.display = 'none';
+    document.getElementById('sinAsistentes').style.display = 'none';
+    document.getElementById('cargandoAsistentes').style.display = 'none';
+});
+
+// Funciones del módulo de cultos
 function editarCulto(id) {
     // Implementar edición
     alert('Editar culto ' + id);
@@ -130,6 +187,8 @@ function editarCulto(id) {
 function tomarAsistencia(id) {
     window.location.href = 'asistencias.php?culto_id=' + id;
 }
+
+
 
 function eliminarCulto(id) {
     // Verificar si SwalUtils está disponible
