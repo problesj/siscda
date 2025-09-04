@@ -356,7 +356,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 exit();
             }
             
-            // Obtener asistentes del culto con información completa
+            // Obtener asistentes del culto (personas regulares)
             $stmt = $pdo->prepare("
                 SELECT 
                     p.NOMBRES,
@@ -364,31 +364,55 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     p.APELLIDO_MATERNO,
                     p.FAMILIA,
                     gf.NOMBRE as GRUPO_FAMILIAR,
-                    p.OBSERVACIONES
+                    p.OBSERVACIONES,
+                    'persona' as TIPO
                 FROM asistencias a
                 INNER JOIN personas p ON a.PERSONA_ID = p.ID
                 LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID
                 WHERE a.CULTO_ID = ?
-                ORDER BY 
-                    CASE WHEN gf.NOMBRE IS NOT NULL AND gf.NOMBRE != '' THEN 1 ELSE 2 END,
-                    gf.NOMBRE ASC,
-                    CASE WHEN p.FAMILIA IS NOT NULL AND p.FAMILIA != '' THEN 1 ELSE 2 END,
-                    p.FAMILIA ASC,
-                    CASE WHEN p.APELLIDO_PATERNO IS NOT NULL AND p.APELLIDO_PATERNO != '' THEN 1 ELSE 2 END,
-                    p.APELLIDO_PATERNO ASC
             ");
             $stmt->execute([$culto_id]);
-            $asistentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $asistentesPersonas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Obtener visitas del culto
+            $stmt = $pdo->prepare("
+                SELECT 
+                    v.NOMBRES,
+                    v.APELLIDOS as APELLIDO_PATERNO,
+                    '' as APELLIDO_MATERNO,
+                    '' as FAMILIA,
+                    '' as GRUPO_FAMILIAR,
+                    v.OBSERVACIONES,
+                    'visita' as TIPO,
+                    av.PRIMERA_VEZ
+                FROM asistencias_visitas av
+                INNER JOIN visitas v ON av.VISITA_ID = v.ID
+                WHERE av.CULTO_ID = ?
+            ");
+            $stmt->execute([$culto_id]);
+            $asistentesVisitas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Combinar asistentes y visitas
+            $todosAsistentes = array_merge($asistentesPersonas, $asistentesVisitas);
+            
+            // Ordenar por apellido
+            usort($todosAsistentes, function($a, $b) {
+                $apellidoA = $a['APELLIDO_PATERNO'] ?? '';
+                $apellidoB = $b['APELLIDO_PATERNO'] ?? '';
+                return strcasecmp($apellidoA, $apellidoB);
+            });
             
             // Formatear los datos para la respuesta
             $asistentesFormateados = [];
-            foreach ($asistentes as $asistente) {
+            foreach ($todosAsistentes as $asistente) {
                 $asistentesFormateados[] = [
                     'nombres' => $asistente['NOMBRES'],
                     'apellidos' => trim($asistente['APELLIDO_PATERNO'] . ' ' . $asistente['APELLIDO_MATERNO']),
                     'familia' => $asistente['FAMILIA'],
                     'grupo_familiar' => $asistente['GRUPO_FAMILIAR'],
-                    'observaciones' => $asistente['OBSERVACIONES']
+                    'observaciones' => $asistente['OBSERVACIONES'],
+                    'tipo' => $asistente['TIPO'],
+                    'primera_vez' => $asistente['PRIMERA_VEZ'] ?? null
                 ];
             }
             
@@ -405,6 +429,40 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } catch (PDOException $e) {
             error_log("Error en obtener_asistentes_culto: " . $e->getMessage());
             echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit();
+    }
+    
+    if ($action == 'obtener_cultos_activos') {
+        // Obtener cultos activos para el select de visitas
+        try {
+            $pdo = conectarDB();
+            
+            $stmt = $pdo->prepare("SELECT ID, TIPO_CULTO, FECHA FROM cultos ORDER BY FECHA DESC");
+            $stmt->execute();
+            $cultos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Formatear fechas
+            $cultosFormateados = [];
+            foreach ($cultos as $culto) {
+                $cultosFormateados[] = [
+                    'ID' => $culto['ID'],
+                    'TIPO_CULTO' => $culto['TIPO_CULTO'],
+                    'FECHA' => $culto['FECHA'],
+                    'FECHA_FORMATEADA' => date('d/m/Y', strtotime($culto['FECHA']))
+                ];
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'cultos' => $cultosFormateados
+            ]);
+            
+        } catch (PDOException $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Error al cargar cultos: ' . $e->getMessage()
+            ]);
         }
         exit();
     }

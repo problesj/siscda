@@ -2,9 +2,17 @@
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Gestión de Personas</h1>
-    <button class="btn btn-primary" onclick="nuevoPersona()">
-        <i class="fas fa-plus"></i> Nueva Persona
-    </button>
+    <div class="btn-group">
+        <button class="btn btn-success" onclick="exportarExcel()">
+            <i class="fas fa-file-excel"></i> Exportar Excel
+        </button>
+        <button class="btn btn-info" onclick="exportarFormatoAsistencia()">
+            <i class="fas fa-clipboard-list"></i> Formato Asistencia
+        </button>
+        <button class="btn btn-primary" onclick="nuevoPersona()">
+            <i class="fas fa-plus"></i> Nueva Persona
+        </button>
+    </div>
 </div>
 
 <?php
@@ -376,6 +384,50 @@ function filtrarPersonas() {
     }
 }
 
+// Función para cambiar el orden de las columnas
+function cambiarOrden(columna) {
+    if (ordenActual === columna) {
+        direccionOrden = direccionOrden === 'asc' ? 'desc' : 'asc';
+    } else {
+        ordenActual = columna;
+        direccionOrden = 'asc';
+    }
+    actualizarBotonesOrdenamiento();
+    
+    // Mantener la página actual si es posible, sino ir a la página 1
+    const totalPaginas = Math.ceil(datosFiltrados.length / itemsPorPagina);
+    if (paginaActual > totalPaginas) {
+        paginaActual = 1;
+    }
+    
+    aplicarOrdenamientoYFiltrado();
+}
+
+// Función para actualizar el estado visual de los botones de ordenamiento
+function actualizarBotonesOrdenamiento() {
+    const botones = document.querySelectorAll('.btn-outline-primary');
+    botones.forEach(boton => {
+        boton.classList.remove('btn-primary');
+        boton.classList.add('btn-outline-primary');
+    });
+    
+    const botonActivo = document.querySelector(`[onclick*="${ordenActual}"]`);
+    if (botonActivo) {
+        botonActivo.classList.remove('btn-outline-primary');
+        botonActivo.classList.add('btn-primary');
+        
+        // Actualizar el ícono según la dirección
+        const icono = botonActivo.querySelector('i');
+        if (icono) {
+            if (direccionOrden === 'asc') {
+                icono.className = 'fas fa-sort-up';
+            } else {
+                icono.className = 'fas fa-sort-down';
+            }
+        }
+    }
+}
+
 // Función para cambiar el número de items por página
 function cambiarItemsPorPagina() {
     itemsPorPagina = parseInt(document.getElementById('itemsPorPagina').value);
@@ -392,9 +444,47 @@ function aplicarOrdenamientoYFiltrado() {
     
     let datosOrdenados;
     
-    // Si no hay ordenamiento específico, mantener el orden original
+    // Si no hay ordenamiento específico, aplicar el orden por defecto: grupo familiar, familia, apellido paterno
+    // Priorizando filas con datos sobre las vacías
     if (ordenActual === 'ORIGINAL') {
-        datosOrdenados = [...datosFiltrados];
+        datosOrdenados = [...datosFiltrados].sort((a, b) => {
+            // Primero por grupo familiar (priorizar los que tienen datos)
+            const grupoA = a.GRUPO_FAMILIAR_NOMBRE || '';
+            const grupoB = b.GRUPO_FAMILIAR_NOMBRE || '';
+            const tieneGrupoA = grupoA !== '';
+            const tieneGrupoB = grupoB !== '';
+            
+            if (tieneGrupoA !== tieneGrupoB) {
+                return tieneGrupoA ? -1 : 1; // Los que tienen grupo familiar van primero
+            }
+            if (grupoA !== grupoB) {
+                return grupoA.localeCompare(grupoB);
+            }
+            
+            // Luego por familia (priorizar los que tienen datos)
+            const familiaA = a.FAMILIA || '';
+            const familiaB = b.FAMILIA || '';
+            const tieneFamiliaA = familiaA !== '';
+            const tieneFamiliaB = familiaB !== '';
+            
+            if (tieneFamiliaA !== tieneFamiliaB) {
+                return tieneFamiliaA ? -1 : 1; // Los que tienen familia van primero
+            }
+            if (familiaA !== familiaB) {
+                return familiaA.localeCompare(familiaB);
+            }
+            
+            // Finalmente por apellido paterno (priorizar los que tienen datos)
+            const apellidoA = a.APELLIDO_PATERNO || '';
+            const apellidoB = b.APELLIDO_PATERNO || '';
+            const tieneApellidoA = apellidoA !== '';
+            const tieneApellidoB = apellidoB !== '';
+            
+            if (tieneApellidoA !== tieneApellidoB) {
+                return tieneApellidoA ? -1 : 1; // Los que tienen apellido van primero
+            }
+            return apellidoA.localeCompare(apellidoB);
+        });
     } else {
         // Aplicar ordenamiento personalizado
         datosOrdenados = [...datosFiltrados].sort((a, b) => {
@@ -922,6 +1012,106 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Función para exportar a Excel
+function exportarExcel() {
+    console.log('📊 Iniciando exportación a Excel...');
+    
+    // Mostrar indicador de carga
+    const btnExportar = document.querySelector('[onclick="exportarExcel()"]');
+    const iconoOriginal = btnExportar.innerHTML;
+    btnExportar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exportando...';
+    btnExportar.disabled = true;
+    
+    try {
+        // Crear un enlace temporal para descargar el archivo
+        const link = document.createElement('a');
+        link.href = 'personas_export.php';
+        link.download = 'personas_' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.xlsx';
+        link.style.display = 'none';
+        
+        // Agregar al DOM, hacer clic y remover
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('✅ Exportación iniciada correctamente');
+        
+        // Mostrar mensaje de éxito
+        Swal.fire({
+            icon: 'success',
+            title: 'Exportación Exitosa',
+            text: 'El archivo Excel se está descargando con el listado de personas.',
+            timer: 3000,
+            showConfirmButton: false
+        });
+        
+    } catch (error) {
+        console.error('❌ Error al exportar:', error);
+        
+        // Mostrar mensaje de error
+        Swal.fire({
+            icon: 'error',
+            title: 'Error en la Exportación',
+            text: 'No se pudo exportar el archivo. Por favor, inténtalo de nuevo.',
+            confirmButtonText: 'Entendido'
+        });
+    } finally {
+        // Restaurar el botón
+        btnExportar.innerHTML = iconoOriginal;
+        btnExportar.disabled = false;
+    }
+}
+
+// Función para exportar en Formato Asistencia
+function exportarFormatoAsistencia() {
+    console.log('📋 Iniciando exportación en Formato Asistencia...');
+    
+    // Mostrar indicador de carga
+    const btnExportar = document.querySelector('[onclick="exportarFormatoAsistencia()"]');
+    const iconoOriginal = btnExportar.innerHTML;
+    btnExportar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+    btnExportar.disabled = true;
+    
+    try {
+        // Crear un enlace temporal para descargar el archivo
+        const link = document.createElement('a');
+        link.href = 'personas_export_asistencia.php';
+        link.download = 'lista_asistencia_' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.xlsx';
+        link.style.display = 'none';
+        
+        // Agregar al DOM, hacer clic y remover
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('✅ Exportación en Formato Asistencia iniciada correctamente');
+        
+        // Mostrar mensaje de éxito
+        Swal.fire({
+            icon: 'success',
+            title: 'Lista de Asistencia Generada',
+            text: 'El archivo Excel en formato de asistencia se está descargando. Puedes marcar las asistencias directamente en el archivo.',
+            timer: 4000,
+            showConfirmButton: false
+        });
+        
+    } catch (error) {
+        console.error('❌ Error al exportar formato asistencia:', error);
+        
+        // Mostrar mensaje de error
+        Swal.fire({
+            icon: 'error',
+            title: 'Error en la Exportación',
+            text: 'No se pudo generar el archivo de asistencia. Por favor, inténtalo de nuevo.',
+            confirmButtonText: 'Entendido'
+        });
+    } finally {
+        // Restaurar el botón
+        btnExportar.innerHTML = iconoOriginal;
+        btnExportar.disabled = false;
+    }
+}
 
 // Mostrar alertas de sesión con SweetAlert2
 <?php if ($successMessage): ?>

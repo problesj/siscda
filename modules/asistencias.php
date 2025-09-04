@@ -851,6 +851,84 @@ if (isset($_SESSION['error'])) {
                     });
                 }
                 
+                // Función para guardar nueva visita
+                function guardarNuevaVisita() {
+                    const form = document.getElementById('formAgregarVisita');
+                    const formData = new FormData(form);
+                    
+                    // Validar campos requeridos
+                    const nombres = formData.get('nombres').trim();
+                    const apellidos = formData.get('apellidos').trim();
+                    const cultoId = formData.get('cultoId');
+                    
+                    if (!nombres || !apellidos || !cultoId) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Los campos Nombres, Apellidos y Culto son obligatorios'
+                        });
+                        return;
+                    }
+                    
+                    // Preparar datos
+                    const datosVisita = {
+                        action: 'agregar_visita',
+                        nombres: nombres,
+                        apellidos: apellidos,
+                        observaciones: formData.get('observaciones').trim(),
+                        cultoId: cultoId,
+                        primeraVez: formData.get('primeraVez')
+                    };
+                    
+                    // Mostrar indicador de carga
+                    Swal.fire({
+                        title: 'Guardando...',
+                        text: 'Por favor espere',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    
+                    // Enviar datos al servidor
+                    fetch('visitas_actions.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(datosVisita)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Éxito',
+                                text: 'Visita agregada y asistencia registrada correctamente'
+                            }).then(() => {
+                                // Cerrar modal y recargar página
+                                const modal = bootstrap.Modal.getInstance(document.getElementById('modalAgregarVisita'));
+                                modal.hide();
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: data.message || 'Error al guardar la visita'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Error de conexión al guardar la visita'
+                        });
+                    });
+                }
+                
                 // Ocultar sugerencias al hacer clic fuera
                 document.addEventListener('click', function(e) {
                     if (!e.target.closest('.sugerencias-container') && !e.target.closest('input')) {
@@ -863,13 +941,13 @@ if (isset($_SESSION['error'])) {
                 const modalAgregarPersona = document.getElementById('modalAgregarPersona');
                 if (modalAgregarPersona) {
                     modalAgregarPersona.addEventListener('hidden.bs.modal', function() {
-                        ocultarSugerencias('nombres');
-                        ocultarSugerencias('apellidos');
+                    ocultarSugerencias('nombres');
+                    ocultarSugerencias('apellidos');
                         const form = document.getElementById('formAgregarPersona');
                         if (form) {
                             form.reset();
                         }
-                    });
+                });
                 }
                 
 
@@ -1176,7 +1254,7 @@ if (isset($_SESSION['error'])) {
                         console.log(`📋 Muestra de datos:`, window.datosPersonas.slice(0, 3).map(p => ({ id: p.id, nombres: p.nombres, asistio: p.asistio })));
                     } else {
                         // Fallback: contar checkboxes del DOM (solo para casos de emergencia)
-                        const checkboxes = document.querySelectorAll('input[name="asistencias[]"]:checked');
+                    const checkboxes = document.querySelectorAll('input[name="asistencias[]"]:checked');
                         const totalCheckboxes = document.querySelectorAll('input[name="asistencias[]"]').length;
                         totalPersonas = totalCheckboxes;
                         asistenciasMarcadas = checkboxes.length;
@@ -1223,6 +1301,116 @@ if (isset($_SESSION['error'])) {
                 });
                 </script>
                 
+                <!-- Funciones globales para abrir modales -->
+                <script>
+                // Función global para abrir modal de agregar persona
+                function abrirModalPersona() {
+                    console.log('Abriendo modal de agregar persona...');
+                    const modalElement = document.getElementById('modalAgregarPersona');
+                    if (modalElement) {
+                        const modal = new bootstrap.Modal(modalElement);
+                        modal.show();
+                        console.log('Modal de agregar persona abierto');
+                    } else {
+                        console.error('No se encontró el modal modalAgregarPersona');
+                    }
+                }
+                
+                // Función global para abrir modal de agregar visita
+                function abrirModalVisita() {
+                    console.log('Abriendo modal de agregar visita...');
+                    const modalElement = document.getElementById('modalAgregarVisita');
+                    if (modalElement) {
+                        // Cargar cultos antes de abrir el modal
+                        cargarCultosParaVisita();
+                        
+                        const modal = new bootstrap.Modal(modalElement);
+                        modal.show();
+                        console.log('Modal de agregar visita abierto');
+                    } else {
+                        console.error('No se encontró el modal modalAgregarVisita');
+                    }
+                }
+                
+                // Función para cargar cultos en el modal de visitas
+                function cargarCultosParaVisita() {
+                    const selectCulto = document.getElementById('cultoIdVisita');
+                    if (!selectCulto) return;
+                    
+                    // Mostrar estado de carga
+                    selectCulto.innerHTML = '<option value="">Cargando cultos...</option>';
+                    
+                    // Obtener culto actual desde la URL o parámetros
+                    const cultoActual = <?php echo $culto_id ?: 'null'; ?>;
+                    
+                    // Cargar cultos via AJAX
+                    fetch('asistencias_actions.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'action=obtener_cultos_activos'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            selectCulto.innerHTML = '<option value="">Seleccione un culto</option>';
+                            
+                            data.cultos.forEach(culto => {
+                                const option = document.createElement('option');
+                                option.value = culto.ID;
+                                option.textContent = `${culto.TIPO_CULTO} - ${culto.FECHA_FORMATEADA}`;
+                                
+                                // Seleccionar el culto actual por defecto
+                                if (cultoActual && culto.ID == cultoActual) {
+                                    option.selected = true;
+                                }
+                                
+                                selectCulto.appendChild(option);
+                            });
+                            
+                            console.log('Cultos cargados correctamente:', data.cultos.length);
+                        } else {
+                            selectCulto.innerHTML = '<option value="">Error al cargar cultos</option>';
+                            console.error('Error al cargar cultos:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        selectCulto.innerHTML = '<option value="">Error de conexión</option>';
+                        console.error('Error de conexión:', error);
+                    });
+                }
+                </script>
+                
+                <!-- Script de debug para verificar funciones -->
+                <script>
+                // Verificar que las funciones estén disponibles
+                document.addEventListener('DOMContentLoaded', function() {
+                    console.log('🔍 Verificando funciones de modales...');
+                    console.log('abrirModalPersona:', typeof abrirModalPersona);
+                    console.log('abrirModalVisita:', typeof abrirModalVisita);
+                    
+                    if (typeof abrirModalPersona === 'function') {
+                        console.log('✅ abrirModalPersona está disponible');
+                    } else {
+                        console.error('❌ abrirModalPersona NO está disponible');
+                    }
+                    
+                    if (typeof abrirModalVisita === 'function') {
+                        console.log('✅ abrirModalVisita está disponible');
+                    } else {
+                        console.error('❌ abrirModalVisita NO está disponible');
+                    }
+                    
+                    // Verificar que los modales existan
+                    const modalPersona = document.getElementById('modalAgregarPersona');
+                    const modalVisita = document.getElementById('modalAgregarVisita');
+                    
+                    console.log('Modal Persona:', modalPersona ? '✅ Existe' : '❌ No existe');
+                    console.log('Modal Visita:', modalVisita ? '✅ Existe' : '❌ No existe');
+                });
+                </script>
+                
                 <!-- Paginación -->
                 <div class="row mt-3">
                     <!-- Selector de items por página - Oculto en móviles muy pequeños -->
@@ -1257,15 +1445,19 @@ if (isset($_SESSION['error'])) {
                     </div>
                 </div>
                 
+                <!-- Botones flotantes para agregar -->
+                <div class="botones-flotantes">
+                    <button type="button" class="btn btn-primary btn-lg" onclick="abrirModalPersona()">
+                        <i class="fas fa-user"></i> Agregar Persona
+                    </button>
+                    <button type="button" class="btn btn-info btn-lg" onclick="abrirModalVisita()">
+                        <i class="fas fa-user-plus"></i> Agregar Visita
+                    </button>
+                </div>
+                
                 <div class="text-center mt-3">
                     <div class="d-grid gap-2 d-md-block">
-
-
-                        <button type="button" class="btn btn-primary btn-lg w-100 w-md-auto ms-md-2 mt-2 mt-md-0" data-bs-toggle="modal" data-bs-target="#modalAgregarPersona">
-                            <i class="fas fa-plus"></i> Agregar Persona
-                        </button>
-
-                        <a href="asistencias.php" class="btn btn-secondary btn-lg w-100 w-md-auto ms-md-2 mt-2 mt-md-0">
+                        <a href="asistencias.php" class="btn btn-secondary btn-lg w-100 w-md-auto">
                             <i class="fas fa-arrow-left"></i> Volver
                         </a>
                     </div>
@@ -1429,7 +1621,139 @@ if (isset($_SESSION['error'])) {
     </div>
 </div>
 
+<!-- Modal para Agregar Visita -->
+<div class="modal fade" id="modalAgregarVisita" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Agregar Nueva Visita</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAgregarVisita">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="nombresVisita" class="form-label">Nombres *</label>
+                            <input type="text" class="form-control" id="nombresVisita" name="nombres" required 
+                                   placeholder="Ingrese nombres de la visita">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="apellidosVisita" class="form-label">Apellidos *</label>
+                            <input type="text" class="form-control" id="apellidosVisita" name="apellidos" required 
+                                   placeholder="Ingrese apellidos de la visita">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="primeraVezVisita" class="form-label">¿Es primera vez?</label>
+                            <select class="form-select" id="primeraVezVisita" name="primeraVez">
+                                <option value="1">Sí</option>
+                                <option value="0">No</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="cultoIdVisita" class="form-label">Culto *</label>
+                            <select class="form-select" id="cultoIdVisita" name="cultoId" required>
+                                <option value="">Cargando cultos...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observacionesVisita" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="observacionesVisita" name="observaciones" rows="3" 
+                                  placeholder="Observaciones adicionales (opcional)"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarNuevaVisita()">
+                    <i class="fas fa-save"></i> Guardar Visita
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
+/* Estilos para botones flotantes */
+.botones-flotantes {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    opacity: 0.9;
+    transition: opacity 0.3s ease;
+}
+
+.botones-flotantes:hover {
+    opacity: 1;
+}
+
+.botones-flotantes .btn {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 50px;
+    padding: 12px 20px;
+    font-weight: 600;
+    min-width: 180px;
+    transition: all 0.3s ease;
+}
+
+.botones-flotantes .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.botones-flotantes .btn-primary {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border: none;
+}
+
+.botones-flotantes .btn-info {
+    background: linear-gradient(135deg, #17a2b8, #138496);
+    border: none;
+}
+
+/* Responsive para botones flotantes */
+@media (max-width: 768px) {
+    .botones-flotantes {
+        bottom: 15px;
+        right: 15px;
+        left: 15px;
+        flex-direction: row;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .botones-flotantes .btn {
+        min-width: auto;
+        flex: 1;
+        padding: 10px 15px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .botones-flotantes {
+        bottom: 10px;
+        right: 10px;
+        left: 10px;
+        gap: 5px;
+    }
+    
+    .botones-flotantes .btn {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+    
+    .botones-flotantes .btn i {
+        margin-right: 4px;
+    }
+}
+
 /* Estilos personalizados para dispositivos móviles */
 @media (max-width: 767.98px) {
     /* Optimización de tablas para móviles */
@@ -1539,6 +1863,13 @@ function cambiarOrden(columna) {
         direccionOrden = 'asc';
     }
     actualizarBotonesOrdenamiento();
+    
+    // Mantener la página actual si es posible, sino ir a la página 1
+    const totalPaginas = Math.ceil(datosFiltrados.length / itemsPorPagina);
+    if (paginaActual > totalPaginas) {
+        paginaActual = 1;
+    }
+    
     aplicarOrdenamientoYFiltrado();
 }
 
@@ -1672,7 +2003,7 @@ function aplicarOrdenamientoYFiltrado() {
     
             // Si no hay ordenamiento específico, aplicar el orden por defecto: grupo familiar, familia, apellido paterno
         // Priorizando filas con datos sobre las vacías
-        if (ordenActual === 'ORIGINAL') {
+    if (ordenActual === 'ORIGINAL') {
             datosOrdenados = [...datosFiltrados].sort((a, b) => {
                 // Primero por grupo familiar (priorizar los que tienen datos)
                 const grupoA = a.grupoFamiliar || '';
@@ -1711,7 +2042,7 @@ function aplicarOrdenamientoYFiltrado() {
                 }
                 return apellidoA.localeCompare(apellidoB);
             });
-        } else {
+    } else {
         // Aplicar ordenamiento personalizado
         datosOrdenados = [...datosFiltrados].sort((a, b) => {
             let valorA, valorB;
@@ -1742,12 +2073,15 @@ function aplicarOrdenamientoYFiltrado() {
         });
     }
     
-    mostrarPagina(datosOrdenados, 1);
+    mostrarPagina(datosOrdenados, paginaActual);
 }
 
                 // Función para mostrar una página específica
                 function mostrarPagina(datos, pagina) {
                     console.log(`=== CAMBIANDO A PÁGINA ${pagina} ===`);
+                    
+                    // Actualizar la variable global de página actual
+                    paginaActual = pagina;
                     
                     const inicio = (pagina - 1) * itemsPorPagina;
                     const fin = inicio + itemsPorPagina;
@@ -1954,7 +2288,7 @@ function generarPaginacion(totalItems, paginaActual) {
         // En móviles, mostrar más páginas para ocupar toda la fila (como en la imagen)
         if (totalPaginas <= 5) {
             // Si hay 5 o menos páginas, mostrar todas
-            for (let i = 1; i <= totalPaginas; i++) {
+    for (let i = 1; i <= totalPaginas; i++) {
                 paginasAMostrar.push(i);
             }
         } else {
@@ -1983,7 +2317,7 @@ function generarPaginacion(totalItems, paginaActual) {
         for (let i = 1; i <= totalPaginas; i++) {
             if (i === 1 || i === totalPaginas || (i >= paginaActual - 2 && i <= paginaActual + 2)) {
                 paginasAMostrar.push(i);
-            } else if (i === paginaActual - 3 || i === paginaActual + 3) {
+        } else if (i === paginaActual - 3 || i === paginaActual + 3) {
                 paginasAMostrar.push('...');
             }
         }
@@ -2050,20 +2384,20 @@ function cargarDatosIniciales() {
             // También cargar las filas visibles para la tabla actual
             const filas = tablaAsistencias.querySelectorAll('tbody tr');
             const datosVisibles = [];
-            
-            // Mantener el orden original de las filas tal como aparecen en el HTML
-            filas.forEach((fila, index) => {
-                const celdas = fila.querySelectorAll('td');
-                if (celdas.length >= 5) {
-                    const checkbox = celdas[0].querySelector('input[type="checkbox"]');
+    
+    // Mantener el orden original de las filas tal como aparecen en el HTML
+    filas.forEach((fila, index) => {
+        const celdas = fila.querySelectorAll('td');
+        if (celdas.length >= 5) {
+            const checkbox = celdas[0].querySelector('input[type="checkbox"]');
                     if (checkbox) { // Verificar que el checkbox existe
-                        const nombres = celdas[1].textContent.trim();
-                        const apellidoPaterno = celdas[2].textContent.trim();
-                        const familia = celdas[3].textContent.trim();
-                        const grupoFamiliar = celdas[4].textContent.trim();
-                        
-                        // Solo agregar si hay datos válidos
-                        if (nombres && apellidoPaterno) {
+            const nombres = celdas[1].textContent.trim();
+            const apellidoPaterno = celdas[2].textContent.trim();
+            const familia = celdas[3].textContent.trim();
+            const grupoFamiliar = celdas[4].textContent.trim();
+            
+            // Solo agregar si hay datos válidos
+            if (nombres && apellidoPaterno) {
                             // Buscar información de imagen en la fila original
                             const botonVer = celdas[5]?.querySelector('button');
                             const tieneImagen = botonVer && botonVer.classList.contains('btn-info');
@@ -2078,24 +2412,24 @@ function cargarDatosIniciales() {
                             }
                             
                             datosVisibles.push({
-                                id: checkbox.value,
-                                nombres: nombres,
-                                apellidoPaterno: apellidoPaterno,
-                                familia: familia === '-' ? '' : familia,
-                                grupoFamiliar: grupoFamiliar === '' ? '' : grupoFamiliar,
-                                asistio: checkbox.checked,
+                    id: checkbox.value,
+                    nombres: nombres,
+                    apellidoPaterno: apellidoPaterno,
+                    familia: familia === '-' ? '' : familia,
+                    grupoFamiliar: grupoFamiliar === '' ? '' : grupoFamiliar,
+                    asistio: checkbox.checked,
                                 ordenOriginal: index, // Mantener el orden original
                                 tieneImagen: tieneImagen, // Información sobre si tiene imagen
                                 imagenUrl: imagenUrl // URL de la imagen si existe
-                            });
+                });
                         }
-                    }
-                }
-            });
-            
+            }
+        }
+    });
+    
             console.log('Datos visibles cargados:', datosVisibles.length, 'personas');
             datosFiltrados = [...datosVisibles];
-            aplicarOrdenamientoYFiltrado();
+    aplicarOrdenamientoYFiltrado();
             
             // Actualizar el contador con todas las personas
             actualizarContadorAsistencias();
@@ -2192,7 +2526,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Solo actualizar botones de ordenamiento si estamos en la vista de tomar asistencia
     const tablaAsistencias = document.querySelector('.table-asistencias');
     if (tablaAsistencias) {
-        actualizarBotonesOrdenamiento();
+    actualizarBotonesOrdenamiento();
     }
     
     // Listener para cambios de tamaño de ventana (para paginación responsive)
@@ -2382,12 +2716,32 @@ function mostrarTablaAsistentesCulto(asistentes) {
     
     asistentes.forEach(asistente => {
         const row = document.createElement('tr');
+        
+        // Determinar el tipo y estilo
+        const esVisita = asistente.tipo === 'visita';
+        const tipoTexto = esVisita ? 'Visita' : 'Persona';
+        const tipoIcono = esVisita ? 'fas fa-user-plus' : 'fas fa-user';
+        const tipoColor = esVisita ? 'text-info' : 'text-primary';
+        
+        // Agregar información de primera vez para visitas
+        const infoPrimeraVez = esVisita && asistente.primera_vez == 1 ? 
+            '<br><small class="text-success"><i class="fas fa-star"></i> Primera vez</small>' : '';
+        
         row.innerHTML = `
-            <td>${asistente.nombres || '-'}</td>
+            <td>
+                <i class="${tipoIcono} ${tipoColor}"></i> 
+                ${asistente.nombres || '-'}
+                ${infoPrimeraVez}
+            </td>
             <td>${asistente.apellidos || '-'}</td>
             <td>${asistente.familia || '-'}</td>
             <td>${asistente.grupo_familiar || '-'}</td>
             <td>${asistente.observaciones || '-'}</td>
+            <td>
+                <span class="badge ${esVisita ? 'bg-info' : 'bg-primary'}">
+                    ${tipoTexto}
+                </span>
+            </td>
         `;
         tbody.appendChild(row);
     });
@@ -2555,6 +2909,7 @@ SwalUtils.showError('<?php echo addslashes($errorMessage); ?>');
                                 <th>Familia</th>
                                 <th>Grupo Familiar</th>
                                 <th>Observaciones</th>
+                                <th>Tipo</th>
                             </tr>
                         </thead>
                         <tbody id="cuerpoTablaAsistentesCulto">
