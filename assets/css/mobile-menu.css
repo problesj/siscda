@@ -7,8 +7,15 @@
     width: 100%;
     height: 100%;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    z-index: 1050;
+    z-index: 9999;
     overflow-y: auto;
+}
+
+/* Estilos para asegurar visibilidad */
+.mobile-menu-container.show {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 .mobile-menu-header {
@@ -193,9 +200,7 @@
         display: none !important;
     }
     
-    .mobile-menu-container {
-        display: block;
-    }
+    /* El menú móvil se controla por JavaScript, no por CSS */
     
     .mobile-menu-grid {
         grid-template-columns: repeat(2, 1fr);

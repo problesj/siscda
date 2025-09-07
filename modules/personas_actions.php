@@ -9,10 +9,10 @@ verificarAutenticacion();
 
 // Obtener la acción solicitada
 $action = $_REQUEST['action'] ?? '';
-
-try {
-    $pdo = conectarDB();
     
+    try {
+        $pdo = conectarDB();
+        
     switch ($action) {
         case 'obtener':
             // Obtener datos de una persona específica o solo roles/grupos si ID es 0
@@ -71,6 +71,8 @@ try {
                 'TELEFONO' => $_POST['telefono'] ?? null,
                 'FAMILIA' => $_POST['familia'] ?? null,
                 'EMAIL' => $_POST['email'] ?? null,
+                'ROL' => $_POST['rol'] ?? null,
+                'GRUPO_FAMILIAR_ID' => $_POST['grupo_familiar_id'] ?? null,
                 'OBSERVACIONES' => $_POST['observaciones'] ?? null,
                 'FECHA_CREACION' => date('Y-m-d H:i:s')
             ];
@@ -125,6 +127,8 @@ try {
                 'TELEFONO' => $_POST['telefono'] ?? null,
                 'FAMILIA' => $_POST['familia'] ?? null,
                 'EMAIL' => $_POST['email'] ?? null,
+                'ROL' => $_POST['rol'] ?? null,
+                'GRUPO_FAMILIAR_ID' => $_POST['grupo_familiar_id'] ?? null,
                 'OBSERVACIONES' => $_POST['observaciones'] ?? null,
                 'FECHA_ACTUALIZACION' => date('Y-m-d H:i:s')
             ];
@@ -221,17 +225,17 @@ try {
             
             $_SESSION['success'] = "Persona {$persona['NOMBRES']} {$persona['APELLIDO_PATERNO']} eliminada exitosamente";
             header('Location: personas.php');
-            exit();
+        exit();
             break;
             
         default:
             throw new Exception('Acción no válida');
-    }
-    
+}
+
 } catch (Exception $e) {
     $_SESSION['error'] = $e->getMessage();
-    header('Location: personas.php');
-    exit();
+header('Location: personas.php');
+exit();
 }
 
 /**

@@ -7,14 +7,12 @@ class MobileMenu {
         console.log('Constructor de MobileMenu ejecutado');
         
         this.menu = document.getElementById('mobileMenu');
-        this.toggle = document.getElementById('mobileMenuToggle');
         this.fab = document.getElementById('mobileMenuFab');
         this.overlay = document.getElementById('mobileMenuOverlay');
         this.isOpen = false;
         
         console.log('Elementos encontrados:', {
             menu: !!this.menu,
-            toggle: !!this.toggle,
             fab: !!this.fab,
             overlay: !!this.overlay
         });
@@ -41,13 +39,6 @@ class MobileMenu {
         console.log('Inicializando MobileMenu...');
         
         // Event listeners
-        if (this.toggle) {
-            this.toggle.addEventListener('click', () => {
-                console.log('Toggle clickeado');
-                this.open();
-            });
-        }
-        
         if (this.fab) {
             this.fab.addEventListener('click', () => {
                 console.log('FAB clickeado');
@@ -168,7 +159,7 @@ function toggleMobileMenu() {
 function selectMenuItem() {
     // Cerrar el menú móvil
     if (window.mobileMenu) {
-        window.mobileMenu.minimize();
+        window.mobileMenu.close();
     }
     
     // La navegación se hará automáticamente por el href del enlace
@@ -180,11 +171,9 @@ function selectMenuItem() {
 
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', () => {
-    // Solo inicializar en dispositivos móviles o cuando sea necesario
-    if (window.innerWidth <= 768 || window.innerHeight <= 600) {
-        window.mobileMenu = new MobileMenu();
-        console.log('Menú móvil inicializado');
-    }
+    // Siempre inicializar el menú móvil para que esté disponible
+    window.mobileMenu = new MobileMenu();
+    console.log('Menú móvil inicializado');
 });
 
 // Inicializar en cualquier momento si es necesario

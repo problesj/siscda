@@ -466,6 +466,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         exit();
     }
+    
+    if ($action == 'obtener_conteo_visitas_culto') {
+        // Obtener conteo de visitas del culto actual
+        try {
+            $pdo = conectarDB();
+            $cultoId = intval($_POST['culto_id'] ?? 0);
+            
+            if ($cultoId <= 0) {
+                throw new Exception('ID de culto no válido');
+            }
+            
+            // Contar visitas del culto
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) as total_visitas
+                FROM asistencias_visitas 
+                WHERE CULTO_ID = ?
+            ");
+            $stmt->execute([$cultoId]);
+            $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            echo json_encode([
+                'success' => true,
+                'total_visitas' => intval($resultado['total_visitas'])
+            ]);
+            
+        } catch (Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Error al obtener conteo de visitas: ' . $e->getMessage()
+            ]);
+        }
+        exit();
+    }
 }
 
 header('Location: asistencias.php');

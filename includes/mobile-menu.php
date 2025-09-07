@@ -88,11 +88,6 @@
     <i class="fas fa-bars"></i>
 </button>
 
-<!-- Botón para abrir el menú móvil en la navbar -->
-<button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="openMobileMenu()">
-    <i class="fas fa-bars"></i>
-</button>
-
 <!-- Overlay para cerrar el menú -->
 <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="closeMobileMenu()"></div>
 
@@ -118,7 +113,7 @@
 .mobile-menu-fab {
     display: none;
     position: fixed;
-    bottom: 20px;
+    top: 80px;
     right: 20px;
     width: 56px;
     height: 56px;
@@ -129,7 +124,7 @@
     font-size: 1.5rem;
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 1000;
+    z-index: 1050;
     transition: all 0.3s ease;
 }
 
@@ -143,7 +138,7 @@
     transform: scale(0.95);
 }
 
-/* Mostrar FAB solo en móvil y cuando el menú esté cerrado */
+/* Mostrar FAB solo en móvil */
 @media (max-width: 768px) {
     .mobile-menu-fab {
         display: block;

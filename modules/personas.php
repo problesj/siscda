@@ -711,6 +711,10 @@ function editarPersona(id) {
         .then(data => {
             if (data.success) {
                 // Llenar el formulario con los datos
+                // Llenar los selectores de rol y grupo familiar PRIMERO
+                llenarSelectores(data.roles, data.gruposFamiliares);
+                
+                // Luego llenar el formulario con los datos
                 document.getElementById('rut').value = data.persona.RUT || '';
                 document.getElementById('nombres').value = data.persona.NOMBRES || '';
                 document.getElementById('apellido_paterno').value = data.persona.APELLIDO_PATERNO || '';
@@ -718,14 +722,17 @@ function editarPersona(id) {
                 document.getElementById('sexo').value = data.persona.SEXO || '';
                 document.getElementById('fecha_nacimiento').value = data.persona.FECHA_NACIMIENTO || '';
                 document.getElementById('familia').value = data.persona.FAMILIA || '';
-                document.getElementById('rol').value = data.persona.ROL || '';
                 document.getElementById('email').value = data.persona.EMAIL || '';
                 document.getElementById('telefono').value = data.persona.TELEFONO || '';
-                document.getElementById('grupo_familiar_id').value = data.persona.GRUPO_FAMILIAR_ID || '';
                 document.getElementById('observaciones').value = data.persona.OBSERVACIONES || '';
                 
-                // Llenar los selectores de rol y grupo familiar
-                llenarSelectores(data.roles, data.gruposFamiliares);
+                // Establecer los valores de los selectores DESPUÉS de llenarlos
+                // Usar setTimeout para asegurar que los selectores estén completamente llenos
+                setTimeout(() => {
+                    document.getElementById('rol').value = data.persona.ROL || '';
+                    document.getElementById('grupo_familiar_id').value = data.persona.GRUPO_FAMILIAR_ID || '';
+                    console.log('🎯 Valores establecidos - ROL:', data.persona.ROL, 'GRUPO_FAMILIAR_ID:', data.persona.GRUPO_FAMILIAR_ID);
+                }, 100);
             } else {
                 Swal.fire({
                     icon: 'error',

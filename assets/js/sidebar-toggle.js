@@ -18,6 +18,57 @@ function toggleSidebar() {
         return;
     }
     
+    // En dispositivos móviles, abrir el menú móvil en lugar del sidebar
+    if (window.innerWidth <= 768) {
+        console.log('📱 Dispositivo móvil detectado, abriendo menú móvil');
+        console.log('🔍 Estado del menú móvil:', window.mobileMenu ? 'inicializado' : 'no inicializado');
+        
+        // Inicializar el menú móvil si no está inicializado
+        if (!window.mobileMenu) {
+            console.log('🔄 Inicializando menú móvil...');
+            initMobileMenu();
+        }
+        
+        // Verificar que el menú existe
+        const menuElement = document.getElementById('mobileMenu');
+        console.log('🔍 Elemento del menú encontrado:', !!menuElement);
+        
+        if (menuElement) {
+            console.log('📱 Mostrando menú móvil directamente...');
+            
+            // Usar múltiples métodos para asegurar visibilidad
+            menuElement.style.display = 'block';
+            menuElement.style.visibility = 'visible';
+            menuElement.style.opacity = '1';
+            menuElement.style.zIndex = '9999';
+            menuElement.classList.add('show');
+            menuElement.style.animation = 'slideInUp 0.3s ease-out';
+            
+            // Mostrar overlay
+            const overlay = document.getElementById('mobileMenuOverlay');
+            if (overlay) {
+                overlay.style.display = 'block';
+                overlay.style.zIndex = '9998';
+            }
+            
+            // Bloquear scroll
+            document.body.style.overflow = 'hidden';
+            
+            console.log('✅ Menú móvil mostrado');
+            console.log('🔍 Estilos aplicados:', {
+                display: menuElement.style.display,
+                visibility: menuElement.style.visibility,
+                opacity: menuElement.style.opacity,
+                zIndex: menuElement.style.zIndex,
+                classes: menuElement.className
+            });
+        } else {
+            console.error('❌ Elemento del menú móvil no encontrado');
+        }
+        return;
+    }
+    
+    // Comportamiento normal para desktop
     const sidebar = document.getElementById('sidebar');
     const mainContent = document.getElementById('mainContent');
     const body = document.body;
@@ -186,8 +237,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100);
 });
 
+// Función para cerrar el menú móvil
+function closeMobileMenu() {
+    console.log('🔒 Cerrando menú móvil...');
+    
+    const menuElement = document.getElementById('mobileMenu');
+    const overlay = document.getElementById('mobileMenuOverlay');
+    
+    if (menuElement) {
+        menuElement.style.animation = 'slideOutDown 0.3s ease-in';
+        menuElement.classList.remove('show');
+        
+        setTimeout(() => {
+            menuElement.style.display = 'none';
+            menuElement.style.visibility = 'hidden';
+            menuElement.style.opacity = '0';
+            menuElement.style.animation = '';
+        }, 300);
+    }
+    
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+    
+    // Restaurar scroll
+    document.body.style.overflow = '';
+    
+    console.log('✅ Menú móvil cerrado');
+}
+
 // Exportar funciones para uso global
 window.toggleSidebar = toggleSidebar;
 window.restoreSidebarState = restoreSidebarState;
 window.isSidebarVisible = isSidebarVisible;
 window.getSidebarState = getSidebarState;
+window.closeMobileMenu = closeMobileMenu;

@@ -591,6 +591,10 @@ if (isset($_SESSION['error'])) {
                 <script>
                 // Inicializar funcionalidades después de cargar la página
                 document.addEventListener('DOMContentLoaded', function() {
+                    // Definir cultoId globalmente
+                    window.cultoId = <?php echo $culto_id ?: 'null'; ?>;
+                    console.log('🎯 CultoId definido:', window.cultoId);
+                    
                     setTimeout(function() {
                         sobrescribirVariablesBootstrap();
                         aplicarEstilosEncabezado();
@@ -1262,32 +1266,80 @@ if (isset($_SESSION['error'])) {
                         console.warn('⚠️ window.datosPersonas no está disponible o está vacío');
                     }
                     
+                    // Obtener el conteo de visitas del culto actual
+                    obtenerConteoVisitasCulto(totalPersonas, asistenciasMarcadas);
+                }
+                
+                // Función para obtener el conteo de visitas del culto
+                function obtenerConteoVisitasCulto(totalPersonas, asistenciasPersonas) {
+                    const cultoId = window.cultoId;
+                    if (!cultoId) {
+                        console.warn('⚠️ No se encontró cultoId para obtener visitas');
+                        mostrarContador(totalPersonas, asistenciasPersonas, 0);
+                        return;
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('action', 'obtener_conteo_visitas_culto');
+                    formData.append('culto_id', cultoId);
+                    
+                    fetch('asistencias_actions.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const totalVisitas = data.total_visitas || 0;
+                            console.log(`📊 Visitas del culto: ${totalVisitas}`);
+                            mostrarContador(totalPersonas, asistenciasPersonas, totalVisitas);
+                        } else {
+                            console.error('Error al obtener conteo de visitas:', data.message);
+                            mostrarContador(totalPersonas, asistenciasPersonas, 0);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error en la petición de visitas:', error);
+                        mostrarContador(totalPersonas, asistenciasPersonas, 0);
+                    });
+                }
+                
+                // Función para mostrar el contador con personas y visitas
+                function mostrarContador(totalPersonas, asistenciasPersonas, totalVisitas) {
+                    const totalAsistentes = asistenciasPersonas + totalVisitas;
+                    const totalPersonasYVisitas = totalPersonas + totalVisitas;
+                    
                     // Buscar o crear el contador
                     let contador = document.getElementById('contadorAsistencias');
                     if (!contador) {
                         contador = document.createElement('div');
                         contador.id = 'contadorAsistencias';
                         contador.className = 'mt-2';
-                        contador.innerHTML = `
-                            <small class="text-success">
-                                <i class="fas fa-check-circle"></i> ${asistenciasMarcadas} de ${totalPersonas} personas han marcado asistencia
-                            </small>
-                        `;
                         
                         // Insertar después del mensaje de info
                         const infoDiv = document.querySelector('.text-muted');
                         if (infoDiv && infoDiv.parentNode) {
                             infoDiv.parentNode.insertBefore(contador, infoDiv.nextSibling);
                         }
+                    }
+                    
+                    // Mostrar el contador con información de personas y visitas
+                    if (totalVisitas > 0) {
+                        contador.innerHTML = `
+                            <small class="text-success">
+                                <i class="fas fa-check-circle"></i> ${totalAsistentes} de ${totalPersonasYVisitas} personas han marcado asistencia
+                                <br><small class="text-info">(${asistenciasPersonas} personas + ${totalVisitas} visitas)</small>
+                            </small>
+                        `;
                     } else {
                         contador.innerHTML = `
                             <small class="text-success">
-                                <i class="fas fa-check-circle"></i> ${asistenciasMarcadas} de ${totalPersonas} personas han marcado asistencia
+                                <i class="fas fa-check-circle"></i> ${asistenciasPersonas} de ${totalPersonas} personas han marcado asistencia
                             </small>
                         `;
                     }
                     
-                    console.log('🎯 Contador final:', `${asistenciasMarcadas}/${totalPersonas} personas`);
+                    console.log('🎯 Contador final:', `${totalAsistentes}/${totalPersonasYVisitas} (${asistenciasPersonas} personas + ${totalVisitas} visitas)`);
                 }
                 
 

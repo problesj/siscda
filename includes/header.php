@@ -41,21 +41,13 @@ $baseUrl = getBaseUrl();
     <!-- Estilos del toggle del sidebar (cargado después de Bootstrap para prioridad) -->
     <link href="<?php echo $baseUrl; ?>/assets/css/sidebar-toggle.css" rel="stylesheet">
     
-    <!-- Estilos inline de emergencia para el botón (máxima prioridad) -->
+    <!-- Estilos para el botón del sidebar -->
     <style>
-        /* Estilos inline de emergencia para el botón */
+        /* Asegurar que el botón del sidebar sea visible */
         #headerSidebarToggle {
             display: flex !important;
             visibility: visible !important;
             opacity: 1 !important;
-            background: red !important;
-            border: 5px solid yellow !important;
-            color: white !important;
-            font-size: 20px !important;
-            font-weight: bold !important;
-            box-shadow: 0 0 20px rgba(255, 0, 0, 0.8) !important;
-            z-index: 9999 !important;
-            position: relative !important;
         }
         
         .nav-item:first-child {
@@ -64,11 +56,15 @@ $baseUrl = getBaseUrl();
             opacity: 1 !important;
         }
         
-        /* Forzar visibilidad del botón */
-        button#headerSidebarToggle {
-            display: inline-flex !important;
-            visibility: visible !important;
-            opacity: 1 !important;
+        /* Ocultar botón del header en móvil */
+        @media (max-width: 768px) {
+            #headerSidebarToggle {
+                display: none !important;
+            }
+            
+            .nav-item:first-child {
+                display: none !important;
+            }
         }
     </style>
     
@@ -92,13 +88,6 @@ $baseUrl = getBaseUrl();
             </a>
             
             <div class="navbar-nav ms-auto">
-                <!-- Botón del menú móvil -->
-                <div class="nav-item d-md-none">
-                    <button class="mobile-menu-toggle" onclick="openMobileMenu()">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                </div>
-                
                 <!-- Menú de usuario (desktop) -->
                 <div class="nav-item dropdown d-none d-md-block">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
