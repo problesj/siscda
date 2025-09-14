@@ -499,6 +499,148 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         exit();
     }
+    
+    if ($action == 'agregar_multiples_visitas') {
+        // Agregar múltiples visitas con distribución de género
+        try {
+            $pdo = conectarDB();
+            
+            // Obtener datos
+            $cultoId = intval($_POST['culto_id'] ?? 0);
+            $totalVisitas = intval($_POST['total_visitas'] ?? 0);
+            $hombres = intval($_POST['hombres'] ?? 0);
+            $mujeres = intval($_POST['mujeres'] ?? 0);
+            $ninos = intval($_POST['ninos'] ?? 0);
+            $observaciones = trim($_POST['observaciones'] ?? '');
+            
+            // Validar datos
+            if ($cultoId <= 0) {
+                throw new Exception('ID de culto no válido');
+            }
+            
+            if ($totalVisitas <= 0 || $totalVisitas > 10) {
+                throw new Exception('Número de visitas debe estar entre 1 y 10');
+            }
+            
+            if ($hombres + $mujeres + $ninos !== $totalVisitas) {
+                throw new Exception('La suma de hombres, mujeres y niños debe ser igual al total de visitas');
+            }
+            
+            // Verificar que el culto existe
+            $stmt = $pdo->prepare("SELECT ID FROM cultos WHERE ID = ?");
+            $stmt->execute([$cultoId]);
+            if (!$stmt->fetch()) {
+                throw new Exception('El culto especificado no existe');
+            }
+            
+            // Iniciar transacción
+            $pdo->beginTransaction();
+            
+            $visitasCreadas = 0;
+            $contadorVisita = 1;
+            
+            // Crear visitas de hombres
+            for ($i = 1; $i <= $hombres; $i++) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO visitas (NOMBRES, APELLIDOS, OBSERVACIONES) 
+                    VALUES (?, ?, ?)
+                ");
+                $stmt->execute([
+                    "visita " . $contadorVisita,
+                    "hombre " . $i,
+                    $observaciones
+                ]);
+                
+                $visitaId = $pdo->lastInsertId();
+                
+                // Registrar asistencia
+                $stmt = $pdo->prepare("
+                    INSERT INTO asistencias_visitas (CULTO_ID, VISITA_ID, PRIMERA_VEZ, USUARIO_ID) 
+                    VALUES (?, ?, 1, ?)
+                ");
+                $stmt->execute([$cultoId, $visitaId, $_SESSION['usuario_id']]);
+                
+                $visitasCreadas++;
+                $contadorVisita++;
+            }
+            
+            // Crear visitas de mujeres
+            for ($i = 1; $i <= $mujeres; $i++) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO visitas (NOMBRES, APELLIDOS, OBSERVACIONES) 
+                    VALUES (?, ?, ?)
+                ");
+                $stmt->execute([
+                    "visita " . $contadorVisita,
+                    "mujer " . $i,
+                    $observaciones
+                ]);
+                
+                $visitaId = $pdo->lastInsertId();
+                
+                // Registrar asistencia
+                $stmt = $pdo->prepare("
+                    INSERT INTO asistencias_visitas (CULTO_ID, VISITA_ID, PRIMERA_VEZ, USUARIO_ID) 
+                    VALUES (?, ?, 1, ?)
+                ");
+                $stmt->execute([$cultoId, $visitaId, $_SESSION['usuario_id']]);
+                
+                $visitasCreadas++;
+                $contadorVisita++;
+            }
+            
+            // Crear visitas de niños
+            for ($i = 1; $i <= $ninos; $i++) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO visitas (NOMBRES, APELLIDOS, OBSERVACIONES) 
+                    VALUES (?, ?, ?)
+                ");
+                $stmt->execute([
+                    "visita " . $contadorVisita,
+                    "niño " . $i,
+                    $observaciones
+                ]);
+                
+                $visitaId = $pdo->lastInsertId();
+                
+                // Registrar asistencia
+                $stmt = $pdo->prepare("
+                    INSERT INTO asistencias_visitas (CULTO_ID, VISITA_ID, PRIMERA_VEZ, USUARIO_ID) 
+                    VALUES (?, ?, 1, ?)
+                ");
+                $stmt->execute([$cultoId, $visitaId, $_SESSION['usuario_id']]);
+                
+                $visitasCreadas++;
+                $contadorVisita++;
+            }
+            
+            // Confirmar transacción
+            $pdo->commit();
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Visitas creadas correctamente',
+                'visitas_creadas' => $visitasCreadas,
+                'distribucion' => [
+                    'hombres' => $hombres,
+                    'mujeres' => $mujeres,
+                    'ninos' => $ninos
+                ]
+            ]);
+            
+        } catch (Exception $e) {
+            // Rollback en caso de error
+            if (isset($pdo) && $pdo->inTransaction()) {
+                $pdo->rollback();
+            }
+            
+            echo json_encode([
+                'success' => false,
+                'message' => 'Error al crear múltiples visitas: ' . $e->getMessage()
+            ]);
+        }
+        exit();
+    }
 }
 
 header('Location: asistencias.php');

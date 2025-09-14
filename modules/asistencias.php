@@ -1384,6 +1384,318 @@ if (isset($_SESSION['error'])) {
                     }
                 }
                 
+                // Función global para abrir modal de múltiples visitas
+                function abrirModalMultiplesVisitas() {
+                    console.log('Abriendo modal de múltiples visitas...');
+                    console.log('Buscando modal con ID: modalMultiplesVisitas');
+                    
+                    const modalElement = document.getElementById('modalMultiplesVisitas');
+                    console.log('Modal encontrado:', modalElement);
+                    
+                    if (modalElement) {
+                        console.log('Modal existe, verificando elementos internos:');
+                        console.log('totalVisitas:', document.getElementById('totalVisitas'));
+                        console.log('cantidadHombres:', document.getElementById('cantidadHombres'));
+                        console.log('cantidadMujeres:', document.getElementById('cantidadMujeres'));
+                        console.log('cantidadNinos:', document.getElementById('cantidadNinos'));
+                        console.log('alertaDistribucion:', document.getElementById('alertaDistribucion'));
+                        console.log('btnGuardarMultiples:', document.getElementById('btnGuardarMultiples'));
+                        
+                        // Cargar cultos antes de abrir el modal
+                        cargarCultosParaMultiplesVisitas();
+                        
+                        const modal = new bootstrap.Modal(modalElement);
+                        
+                        // Agregar event listener para cuando el modal se muestre completamente
+                        modalElement.addEventListener('shown.bs.modal', function() {
+                            console.log('Modal completamente mostrado, verificando elementos:');
+                            console.log('totalVisitas:', document.getElementById('totalVisitas') ? '✅' : '❌');
+                            console.log('cantidadHombres:', document.getElementById('cantidadHombres') ? '✅' : '❌');
+                            console.log('cantidadMujeres:', document.getElementById('cantidadMujeres') ? '✅' : '❌');
+                            console.log('cantidadNinos:', document.getElementById('cantidadNinos') ? '✅' : '❌');
+                            console.log('alertaDistribucion:', document.getElementById('alertaDistribucion') ? '✅' : '❌');
+                            console.log('btnGuardarMultiples:', document.getElementById('btnGuardarMultiples') ? '✅' : '❌');
+                        });
+                        
+                        modal.show();
+                        console.log('Modal de múltiples visitas abierto');
+                    } else {
+                        console.error('No se encontró el modal modalMultiplesVisitas');
+                        console.error('Elementos con "modal" en el ID:', document.querySelectorAll('[id*="modal"]'));
+                    }
+                }
+                
+                // Función para cargar cultos en el modal de múltiples visitas
+                function cargarCultosParaMultiplesVisitas() {
+                    const selectCulto = document.getElementById('cultoIdMultiples');
+                    if (!selectCulto) return;
+                    
+                    // Mostrar estado de carga
+                    selectCulto.innerHTML = '<option value="">Cargando cultos...</option>';
+                    
+                    // Obtener culto actual desde la URL o parámetros
+                    const cultoActual = <?php echo $culto_id ?: 'null'; ?>;
+                    
+                    // Cargar cultos via AJAX
+                    fetch('asistencias_actions.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'action=obtener_cultos_activos'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            selectCulto.innerHTML = '<option value="">Seleccione un culto</option>';
+                            
+                            data.cultos.forEach(culto => {
+                                const option = document.createElement('option');
+                                option.value = culto.ID;
+                                option.textContent = `${culto.TIPO_CULTO} - ${culto.FECHA_FORMATEADA}`;
+                                
+                                // Seleccionar el culto actual por defecto
+                                if (cultoActual && culto.ID == cultoActual) {
+                                    option.selected = true;
+                                }
+                                
+                                selectCulto.appendChild(option);
+                            });
+                            
+                            console.log('Cultos cargados correctamente para múltiples visitas:', data.cultos.length);
+                        } else {
+                            selectCulto.innerHTML = '<option value="">Error al cargar cultos</option>';
+                            console.error('Error al cargar cultos:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        selectCulto.innerHTML = '<option value="">Error de conexión</option>';
+                        console.error('Error de conexión:', error);
+                    });
+                }
+                
+                // Función para actualizar las opciones de distribución cuando cambia el total
+                function actualizarDistribucion() {
+                    console.log('actualizarDistribucion() ejecutándose...');
+                    
+                    const totalVisitasElement = document.getElementById('totalVisitas');
+                    const selectHombres = document.getElementById('cantidadHombres');
+                    const selectMujeres = document.getElementById('cantidadMujeres');
+                    const selectNinos = document.getElementById('cantidadNinos');
+                    
+                    console.log('Elementos en actualizarDistribucion:');
+                    console.log('totalVisitasElement:', totalVisitasElement);
+                    console.log('selectHombres:', selectHombres);
+                    console.log('selectMujeres:', selectMujeres);
+                    console.log('selectNinos:', selectNinos);
+                    
+                    // Verificar que todos los elementos existan
+                    if (!totalVisitasElement || !selectHombres || !selectMujeres || !selectNinos) {
+                        console.error('Elementos del formulario no encontrados en actualizarDistribucion');
+                        console.error('totalVisitasElement:', totalVisitasElement ? 'OK' : 'MISSING');
+                        console.error('selectHombres:', selectHombres ? 'OK' : 'MISSING');
+                        console.error('selectMujeres:', selectMujeres ? 'OK' : 'MISSING');
+                        console.error('selectNinos:', selectNinos ? 'OK' : 'MISSING');
+                        return;
+                    }
+                    
+                    const totalVisitas = parseInt(totalVisitasElement.value) || 0;
+                    
+                    // Limpiar opciones existentes
+                    selectHombres.innerHTML = '';
+                    selectMujeres.innerHTML = '';
+                    selectNinos.innerHTML = '';
+                    
+                    // Crear opciones de 0 a totalVisitas para cada select
+                    for (let i = 0; i <= totalVisitas; i++) {
+                        const optionHombres = document.createElement('option');
+                        optionHombres.value = i;
+                        optionHombres.textContent = i;
+                        selectHombres.appendChild(optionHombres);
+                        
+                        const optionMujeres = document.createElement('option');
+                        optionMujeres.value = i;
+                        optionMujeres.textContent = i;
+                        selectMujeres.appendChild(optionMujeres);
+                        
+                        const optionNinos = document.createElement('option');
+                        optionNinos.value = i;
+                        optionNinos.textContent = i;
+                        selectNinos.appendChild(optionNinos);
+                    }
+                    
+                    // Resetear valores
+                    selectHombres.value = '0';
+                    selectMujeres.value = '0';
+                    selectNinos.value = '0';
+                    
+                    // Validar distribución
+                    validarDistribucion();
+                }
+                
+                // Función para validar que la suma de distribución sea igual al total
+                function validarDistribucion() {
+                    console.log('validarDistribucion() ejecutándose...');
+                    
+                    const totalVisitasElement = document.getElementById('totalVisitas');
+                    const hombresElement = document.getElementById('cantidadHombres');
+                    const mujeresElement = document.getElementById('cantidadMujeres');
+                    const ninosElement = document.getElementById('cantidadNinos');
+                    const alerta = document.getElementById('alertaDistribucion');
+                    const btnGuardar = document.getElementById('btnGuardarMultiples');
+                    
+                    console.log('Elementos encontrados:');
+                    console.log('totalVisitasElement:', totalVisitasElement);
+                    console.log('hombresElement:', hombresElement);
+                    console.log('mujeresElement:', mujeresElement);
+                    console.log('ninosElement:', ninosElement);
+                    console.log('alerta:', alerta);
+                    console.log('btnGuardar:', btnGuardar);
+                    
+                    // Verificar que los elementos principales existan (alerta es opcional)
+                    if (!totalVisitasElement || !hombresElement || !mujeresElement || !ninosElement || !btnGuardar) {
+                        console.error('Elementos principales del formulario no encontrados');
+                        console.error('totalVisitasElement:', totalVisitasElement ? 'OK' : 'MISSING');
+                        console.error('hombresElement:', hombresElement ? 'OK' : 'MISSING');
+                        console.error('mujeresElement:', mujeresElement ? 'OK' : 'MISSING');
+                        console.error('ninosElement:', ninosElement ? 'OK' : 'MISSING');
+                        console.error('btnGuardar:', btnGuardar ? 'OK' : 'MISSING');
+                        return;
+                    }
+                    
+                    // El elemento alerta es opcional, solo mostrar advertencia si no existe
+                    if (!alerta) {
+                        console.warn('Elemento alertaDistribucion no encontrado, continuando sin alerta');
+                    }
+                    
+                    const totalVisitas = parseInt(totalVisitasElement.value) || 0;
+                    const hombres = parseInt(hombresElement.value) || 0;
+                    const mujeres = parseInt(mujeresElement.value) || 0;
+                    const ninos = parseInt(ninosElement.value) || 0;
+                    const suma = hombres + mujeres + ninos;
+                    
+                    if (totalVisitas > 0) {
+                        if (suma === totalVisitas) {
+                            if (alerta) alerta.style.display = 'none';
+                            btnGuardar.disabled = false;
+                        } else {
+                            if (alerta) alerta.style.display = 'block';
+                            btnGuardar.disabled = true;
+                        }
+                    } else {
+                        if (alerta) alerta.style.display = 'none';
+                        btnGuardar.disabled = true;
+                    }
+                }
+                
+                // Función para guardar múltiples visitas
+                function guardarMultiplesVisitas() {
+                    const totalVisitasElement = document.getElementById('totalVisitas');
+                    const hombresElement = document.getElementById('cantidadHombres');
+                    const mujeresElement = document.getElementById('cantidadMujeres');
+                    const ninosElement = document.getElementById('cantidadNinos');
+                    const cultoIdElement = document.getElementById('cultoIdMultiples');
+                    const observacionesElement = document.getElementById('observacionesMultiples');
+                    
+                    // Verificar que todos los elementos existan
+                    if (!totalVisitasElement || !hombresElement || !mujeresElement || !ninosElement || !cultoIdElement || !observacionesElement) {
+                        console.error('Elementos del formulario no encontrados en guardarMultiplesVisitas');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Error al acceder a los elementos del formulario'
+                        });
+                        return;
+                    }
+                    
+                    const totalVisitas = parseInt(totalVisitasElement.value) || 0;
+                    const hombres = parseInt(hombresElement.value) || 0;
+                    const mujeres = parseInt(mujeresElement.value) || 0;
+                    const ninos = parseInt(ninosElement.value) || 0;
+                    const cultoId = cultoIdElement.value;
+                    const observaciones = observacionesElement.value.trim();
+                    
+                    // Validar campos requeridos
+                    if (!totalVisitas || !cultoId) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Por favor complete todos los campos requeridos'
+                        });
+                        return;
+                    }
+                    
+                    // Validar distribución
+                    if (hombres + mujeres + ninos !== totalVisitas) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'La suma de hombres, mujeres y niños debe ser igual al total de visitas'
+                        });
+                        return;
+                    }
+                    
+                    // Mostrar confirmación
+                    Swal.fire({
+                        title: '¿Confirmar creación de visitas?',
+                        text: `Se crearán ${totalVisitas} visitas: ${hombres} hombres, ${mujeres} mujeres, ${ninos} niños`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, crear',
+                        cancelButtonText: 'Cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Crear datos para enviar
+                            const datosVisitas = {
+                                action: 'agregar_multiples_visitas',
+                                culto_id: cultoId,
+                                total_visitas: totalVisitas,
+                                hombres: hombres,
+                                mujeres: mujeres,
+                                ninos: ninos,
+                                observaciones: observaciones
+                            };
+                            
+                            // Enviar datos
+                            fetch('asistencias_actions.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: new URLSearchParams(datosVisitas)
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Éxito',
+                                        text: `Se crearon ${data.visitas_creadas} visitas correctamente`
+                                    }).then(() => {
+                                        const modal = bootstrap.Modal.getInstance(document.getElementById('modalMultiplesVisitas'));
+                                        modal.hide();
+                                        location.reload();
+                                    });
+                                } else {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Error',
+                                        text: data.message || 'Error al crear las visitas'
+                                    });
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: 'Error de conexión al crear las visitas'
+                                });
+                            });
+                        }
+                    });
+                }
+                
                 // Función para cargar cultos en el modal de visitas
                 function cargarCultosParaVisita() {
                     const selectCulto = document.getElementById('cultoIdVisita');
@@ -1504,6 +1816,9 @@ if (isset($_SESSION['error'])) {
                     </button>
                     <button type="button" class="btn btn-info btn-lg" onclick="abrirModalVisita()">
                         <i class="fas fa-user-plus"></i> Agregar Visita
+                    </button>
+                    <button type="button" class="btn btn-success btn-lg" onclick="abrirModalMultiplesVisitas()">
+                        <i class="fas fa-users"></i> Múltiples Visitas
                     </button>
                 </div>
                 
@@ -1727,6 +2042,82 @@ if (isset($_SESSION['error'])) {
     </div>
 </div>
 
+<!-- Modal para Agregar Múltiples Visitas -->
+<div class="modal fade" id="modalMultiplesVisitas" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Agregar Múltiples Visitas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formMultiplesVisitas">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="totalVisitas" class="form-label">Total de Visitas</label>
+                            <select class="form-select" id="totalVisitas" onchange="actualizarDistribucion()" required>
+                                <option value="">Seleccione cantidad</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="cultoIdMultiples" class="form-label">Culto</label>
+                            <select class="form-select" id="cultoIdMultiples" required>
+                                <option value="">Cargando cultos...</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="cantidadHombres" class="form-label">Hombres</label>
+                            <select class="form-select" id="cantidadHombres" onchange="validarDistribucion()">
+                                <option value="0">0</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="cantidadMujeres" class="form-label">Mujeres</label>
+                            <select class="form-select" id="cantidadMujeres" onchange="validarDistribucion()">
+                                <option value="0">0</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="cantidadNinos" class="form-label">Niños</label>
+                            <select class="form-select" id="cantidadNinos" onchange="validarDistribucion()">
+                                <option value="0">0</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observacionesMultiples" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="observacionesMultiples" rows="3" placeholder="Observaciones para todas las visitas"></textarea>
+                    </div>
+                    
+                    <div class="alert alert-info" id="alertaDistribucion" style="display: none;">
+                        <i class="fas fa-info-circle"></i> La suma de hombres, mujeres y niños debe ser igual al total de visitas seleccionado.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="guardarMultiplesVisitas()" id="btnGuardarMultiples" disabled>
+                    <i class="fas fa-save"></i> Guardar Visitas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 /* Estilos para botones flotantes */
 .botones-flotantes {
@@ -1766,6 +2157,11 @@ if (isset($_SESSION['error'])) {
 
 .botones-flotantes .btn-info {
     background: linear-gradient(135deg, #17a2b8, #138496);
+    border: none;
+}
+
+.botones-flotantes .btn-success {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
     border: none;
 }
 

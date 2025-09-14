@@ -2,18 +2,9 @@
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Gestión de Personas</h1>
-    <div class="btn-group">
-        <button class="btn btn-success" onclick="exportarExcel()">
-            <i class="fas fa-file-excel"></i> Exportar Excel
-        </button>
-        <button class="btn btn-info" onclick="exportarFormatoAsistencia()">
-            <i class="fas fa-clipboard-list"></i> Formato Asistencia
-        </button>
-        <button class="btn btn-primary" onclick="nuevoPersona()">
-            <i class="fas fa-plus"></i> Nueva Persona
-        </button>
-    </div>
 </div>
+
+<!-- Pestañas de navegación -->
 
 <?php
 // Variables para SweetAlert2
@@ -45,16 +36,47 @@ try {
     
     // Convertir a JSON para JavaScript
     $personas_json = json_encode($personas);
+    
+    // Obtener grupos familiares
+    $sql_grupos = "SELECT gf.*, COUNT(p.ID) as miembros 
+                   FROM grupos_familiares gf 
+                   LEFT JOIN personas p ON gf.ID = p.GRUPO_FAMILIAR_ID 
+                   GROUP BY gf.ID 
+                   ORDER BY gf.ID";
+    
+    $stmt_grupos = $pdo->prepare($sql_grupos);
+    $stmt_grupos->execute();
+    $grupos = $stmt_grupos->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Debug: verificar datos
+    error_log("Grupos cargados: " . print_r($grupos, true));
+    
+    // Convertir a JSON para JavaScript
+    $grupos_json = json_encode($grupos);
 } catch (PDOException $e) {
     echo '<div class="alert alert-danger">Error al cargar las personas: ' . htmlspecialchars($e->getMessage()) . '</div>';
     $personas = [];
     $personas_json = '[]';
+    $grupos = [];
+    $grupos_json = '[]';
 }
 ?>
 
+<!-- Gestión de Personas -->
 <div class="card shadow mb-4">
-    <div class="card-header py-3">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
         <h6 class="m-0 font-weight-bold text-primary">Listado de Personas</h6>
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="exportarExcel()">
+                        <i class="fas fa-file-excel"></i> Exportar Excel
+                    </button>
+                    <button class="btn btn-info" onclick="exportarFormatoAsistencia()">
+                        <i class="fas fa-clipboard-list"></i> Formato Asistencia
+                    </button>
+                    <button class="btn btn-primary" onclick="nuevoPersona()">
+                        <i class="fas fa-plus"></i> Nueva Persona
+                    </button>
+                </div>
     </div>
     <div class="card-body">
         <!-- Campo de búsqueda -->
@@ -143,15 +165,16 @@ try {
                 </tbody>
             </table>
         </div>
-        
+            
         <!-- Paginación del lado del cliente -->
-        <div class="row mt-3">
+            <div class="row mt-3">
             <div class="col-12">
-                <nav aria-label="Navegación de páginas">
+                    <nav aria-label="Navegación de páginas">
                     <ul class="pagination justify-content-center mb-0" id="paginacion">
                         <!-- Se generará dinámicamente con JavaScript -->
-                    </ul>
-                </nav>
+                        </ul>
+                    </nav>
+            </div>
             </div>
         </div>
     </div>
@@ -259,17 +282,17 @@ try {
                                 <label for="imagen" class="form-label">Imagen</label>
                                 <input type="file" class="form-control" id="imagen" name="imagen" accept="image/*" onchange="mostrarVistaPrevia(this)">
                                 <div class="form-text">Formatos: JPG, PNG. Máximo: 500KB</div>
-                            </div>
+                    </div>
                         </div>
                     </div>
                     
                     <div class="row">
                         <div class="col-12">
-                            <div class="mb-3">
-                                <label for="observaciones" class="form-label">Observaciones</label>
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones</label>
                                 <textarea class="form-control" id="observaciones" name="observaciones" rows="3"></textarea>
-                            </div>
-                        </div>
+                    </div>
+                </div>
                     </div>
                 </div>
                 
@@ -309,6 +332,7 @@ try {
     </div>
 </div>
 
+
 <script>
 // Variables globales para el sistema de búsqueda y paginación
 let datosPersonas = [];
@@ -317,6 +341,12 @@ let paginaActual = 1;
 let itemsPorPagina = 25;
 let ordenActual = 'ORIGINAL';
 let direccionOrden = 'asc';
+
+// Variables eliminadas - ya no se usan
+
+// Función eliminada - ya no se usa
+
+// Función eliminada
 
 // Función para mostrar vista previa de imagen
 function mostrarVistaPrevia(input) {
@@ -407,8 +437,8 @@ function cambiarOrden(columna) {
 function actualizarBotonesOrdenamiento() {
     const botones = document.querySelectorAll('.btn-outline-primary');
     botones.forEach(boton => {
-        boton.classList.remove('btn-primary');
-        boton.classList.add('btn-outline-primary');
+            boton.classList.remove('btn-primary');
+            boton.classList.add('btn-outline-primary');
     });
     
     const botonActivo = document.querySelector(`[onclick*="${ordenActual}"]`);
@@ -421,7 +451,7 @@ function actualizarBotonesOrdenamiento() {
         if (icono) {
             if (direccionOrden === 'asc') {
                 icono.className = 'fas fa-sort-up';
-            } else {
+    } else {
                 icono.className = 'fas fa-sort-down';
             }
         }
@@ -485,7 +515,7 @@ function aplicarOrdenamientoYFiltrado() {
             }
             return apellidoA.localeCompare(apellidoB);
         });
-    } else {
+        } else {
         // Aplicar ordenamiento personalizado
         datosOrdenados = [...datosFiltrados].sort((a, b) => {
             let valorA, valorB;
@@ -552,26 +582,26 @@ function mostrarPagina(datos, pagina) {
                 <tr>
                     <td>${persona.ID}</td>
                     <td><img src="${imagenSrc}" alt="Foto de ${persona.NOMBRES}" class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;" onerror="this.src='../assets/images/personas/default_male.svg'"></td>
-                    <td>${persona.RUT || '-'}</td>
+                <td>${persona.RUT || '-'}</td>
                     <td>${persona.NOMBRES}</td>
                     <td>${persona.APELLIDO_PATERNO}</td>
-                    <td>${persona.APELLIDO_MATERNO || '-'}</td>
-                    <td>${persona.FAMILIA || '-'}</td>
+                <td>${persona.APELLIDO_MATERNO || '-'}</td>
+                <td>${persona.FAMILIA || '-'}</td>
                     <td>${persona.ROL_NOMBRE || '-'}</td>
                     <td>${persona.GRUPO_FAMILIAR_NOMBRE || 'Sin grupo'}</td>
-                    <td>
+                <td>
                         <div class="btn-group" role="group">
                             <button class="btn btn-sm btn-primary" onclick="verPersona(${persona.ID})" title="Ver datos">
                                 <i class="fas fa-eye"></i>
-                            </button>
+                    </button>
                             <button class="btn btn-sm btn-info" onclick="editarPersona(${persona.ID})" title="Editar">
                                 <i class="fas fa-edit"></i>
-                            </button>
+                    </button>
                             <button class="btn btn-sm btn-danger" onclick="eliminarPersona(${persona.ID})" title="Eliminar">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
-                    </td>
+                </td>
                 </tr>
             `;
         });
@@ -595,7 +625,7 @@ function generarPaginacion(totalItems, paginaActual) {
     const paginacion = document.getElementById('paginacion');
     
     if (totalPaginas <= 1) {
-        paginacion.innerHTML = '';
+    paginacion.innerHTML = '';
         return;
     }
     
@@ -823,8 +853,8 @@ function eliminarPersona(id) {
 // Función para mostrar datos de la persona en el modal de vista
 function mostrarDatosPersona(persona, personaId) {
     // Generar el HTML con los datos completos de la persona
-    const html = `
-        <div class="row">
+        const html = `
+            <div class="row">
             <div class="col-md-4">
                 <div class="text-center mb-3">
                     <img src="${persona.URL_IMAGEN ? '../' + persona.URL_IMAGEN : '../assets/images/personas/default_male.svg'}" 
@@ -837,33 +867,33 @@ function mostrarDatosPersona(persona, personaId) {
                 </div>
             </div>
             <div class="col-md-8">
-                <div class="card border-0 bg-light">
-                    <div class="card-body">
-                        <h6 class="card-title text-primary">
-                            <i class="fas fa-id-card me-2"></i>Información Personal
-                        </h6>
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">
+                                <i class="fas fa-id-card me-2"></i>Información Personal
+                            </h6>
                         <div class="row">
                             <div class="col-md-6">
-                                <div class="mb-2">
+                            <div class="mb-2">
                                     <strong>RUT:</strong> ${persona.RUT || 'No especificado'}
-                                </div>
-                                <div class="mb-2">
-                                    <strong>Nombres:</strong> ${persona.NOMBRES}
-                                </div>
-                                <div class="mb-2">
-                                    <strong>Apellido Paterno:</strong> ${persona.APELLIDO_PATERNO}
-                                </div>
-                                <div class="mb-2">
-                                    <strong>Apellido Materno:</strong> ${persona.APELLIDO_MATERNO || 'No especificado'}
-                                </div>
                             </div>
+                            <div class="mb-2">
+                                <strong>Nombres:</strong> ${persona.NOMBRES}
+                            </div>
+                            <div class="mb-2">
+                                <strong>Apellido Paterno:</strong> ${persona.APELLIDO_PATERNO}
+                            </div>
+                            <div class="mb-2">
+                                    <strong>Apellido Materno:</strong> ${persona.APELLIDO_MATERNO || 'No especificado'}
+                            </div>
+                        </div>
                             <div class="col-md-6">
                                 <div class="mb-2">
                                     <strong>Sexo:</strong> ${persona.SEXO || 'No especificado'}
-                                </div>
+                    </div>
                                 <div class="mb-2">
                                     <strong>Fecha de Nacimiento:</strong> ${persona.FECHA_NACIMIENTO ? new Date(persona.FECHA_NACIMIENTO).toLocaleDateString('es-ES') : 'No especificada'}
-                                </div>
+                </div>
                                 <div class="mb-2">
                                     <strong>Email:</strong> ${persona.EMAIL || 'No especificado'}
                                 </div>
@@ -878,19 +908,19 @@ function mostrarDatosPersona(persona, personaId) {
         </div>
         
         <div class="row mt-3">
-            <div class="col-md-6">
-                <div class="card border-0 bg-light">
-                    <div class="card-body">
-                        <h6 class="card-title text-primary">
-                            <i class="fas fa-users me-2"></i>Información Familiar
-                        </h6>
-                        <div class="mb-2">
+                <div class="col-md-6">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">
+                                <i class="fas fa-users me-2"></i>Información Familiar
+                            </h6>
+                            <div class="mb-2">
                             <strong>Familia:</strong> ${persona.FAMILIA || 'No especificada'}
-                        </div>
-                        <div class="mb-2">
+                            </div>
+                            <div class="mb-2">
                             <strong>Grupo Familiar:</strong> ${persona.GRUPO_FAMILIAR_NOMBRE || 'No asignado'}
-                        </div>
-                        <div class="mb-2">
+                            </div>
+                            <div class="mb-2">
                             <strong>Rol:</strong> ${persona.ROL_NOMBRE || 'No asignado'}
                         </div>
                     </div>
@@ -907,33 +937,33 @@ function mostrarDatosPersona(persona, personaId) {
                         </div>
                         <div class="mb-2">
                             <strong>Última Actualización:</strong> ${persona.FECHA_ACTUALIZACION ? new Date(persona.FECHA_ACTUALIZACION).toLocaleDateString('es-ES') + ' ' + new Date(persona.FECHA_ACTUALIZACION).toLocaleTimeString('es-ES') : 'No disponible'}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        
+            
         ${persona.OBSERVACIONES ? `
-        <div class="row mt-3">
-            <div class="col-12">
-                <div class="card border-0 bg-light">
-                    <div class="card-body">
-                        <h6 class="card-title text-primary">
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">
                             <i class="fas fa-sticky-note me-2"></i>Observaciones
-                        </h6>
+                            </h6>
                         <p class="mb-0">${persona.OBSERVACIONES}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
         ` : ''}
-    `;
-    
-    // Mostrar los datos en el modal
-    document.getElementById('datosPersona').innerHTML = html;
-    
-    // Guardar el ID de la persona para poder editarla
-    document.getElementById('btnEditarPersona').setAttribute('data-persona-id', personaId);
+        `;
+        
+        // Mostrar los datos en el modal
+        document.getElementById('datosPersona').innerHTML = html;
+        
+        // Guardar el ID de la persona para poder editarla
+        document.getElementById('btnEditarPersona').setAttribute('data-persona-id', personaId);
 }
 
 // Función para editar persona desde el modal de ver
@@ -1140,6 +1170,259 @@ Swal.fire({
     confirmButtonColor: '#dc3545'
 });
 <?php endif; ?>
+
+// Funciones para las pestañas
+function cargarVisitas() {
+    console.log('Cargando visitas...');
+    fetch('visitas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=obtener_visitas'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarVisitas(data.visitas);
+        } else {
+            console.error('Error al cargar visitas:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error de conexión:', error);
+    });
+}
+
+// Función eliminada - ya no se usa
+function mostrarVisitas_Eliminada(visitas) {
+    const tbody = document.querySelector('#tablaVisitas tbody');
+    tbody.innerHTML = '';
+    
+    visitas.forEach(visita => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${visita.ID}</td>
+            <td>${visita.NOMBRES}</td>
+            <td>${visita.APELLIDOS}</td>
+            <td>${visita.OBSERVACIONES || '-'}</td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="editarVisita(${visita.ID})">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="eliminarVisita(${visita.ID})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Función eliminada - ya no se usa
+
+// Función eliminada - ya no se usa
+function mostrarGrupos_Eliminada(grupos) {
+    console.log('Mostrando grupos:', grupos);
+    const tbody = document.querySelector('#tablaGrupos tbody');
+    if (!tbody) {
+        console.error('No se encontró el tbody en mostrarGrupos');
+        return;
+    }
+    tbody.innerHTML = '';
+    
+    if (!grupos || grupos.length === 0) {
+        console.log('No hay grupos para mostrar');
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No hay grupos familiares registrados</td></tr>';
+        return;
+    }
+    
+    grupos.forEach(grupo => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${grupo.ID}</td>
+            <td>${grupo.NOMBRE}</td>
+            <td>${grupo.DESCRIPCION || '-'}</td>
+            <td>${grupo.FECHA_CREACION ? new Date(grupo.FECHA_CREACION).toLocaleDateString('es-ES') + ' ' + new Date(grupo.FECHA_CREACION).toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'}) : '-'}</td>
+            <td>${grupo.FECHA_ACTUALIZACION ? new Date(grupo.FECHA_ACTUALIZACION).toLocaleDateString('es-ES') + ' ' + new Date(grupo.FECHA_ACTUALIZACION).toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'}) : '-'}</td>
+            <td>${grupo.miembros}</td>
+            <td>
+                <button class="btn btn-sm btn-info" onclick="editarGrupoFamiliar(${grupo.ID})">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="eliminarGrupoFamiliar(${grupo.ID})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function cargarRoles() {
+    console.log('Cargando roles...');
+    fetch('roles_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=obtener_roles'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarRoles(data.roles);
+        } else {
+            console.error('Error al cargar roles:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error de conexión:', error);
+    });
+}
+
+// Función eliminada - ya no se usa
+function mostrarRoles_Eliminada(roles) {
+    const tbody = document.querySelector('#tablaRoles tbody');
+    tbody.innerHTML = '';
+    
+    roles.forEach(rol => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${rol.id}</td>
+            <td>${rol.nombre_rol}</td>
+            <td>${rol.descripcion || '-'}</td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="editarRol(${rol.id})">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="eliminarRol(${rol.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Funciones placeholder para las acciones
+function nuevaVisita() {
+    // Redirigir a asistencias para agregar visita
+    window.location.href = 'asistencias.php';
+}
+
+function editarVisita(id) {
+    console.log('Editar visita:', id);
+    // Implementar edición de visita
+}
+
+function eliminarVisita(id) {
+    console.log('Eliminar visita:', id);
+    // Implementar eliminación de visita
+}
+
+function editarGrupoFamiliar(id) {
+    console.log('Editar grupo familiar:', id);
+    // Implementar edición de grupo familiar
+    alert('Editar grupo familiar ' + id);
+}
+
+function eliminarGrupoFamiliar(id) {
+    console.log('Eliminar grupo familiar:', id);
+    // Verificar si SwalUtils está disponible
+    if (typeof SwalUtils !== 'undefined' && typeof SwalUtils.showDeleteConfirm === 'function') {
+        SwalUtils.showDeleteConfirm('este grupo familiar').then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = 'grupos_familiares_actions.php?action=eliminar&id=' + id;
+            }
+        });
+    } else {
+        // Fallback: usar SweetAlert2 directamente
+        Swal.fire({
+            icon: 'warning',
+            title: '¿Está seguro?',
+            text: '¿Realmente desea eliminar este grupo familiar? Esta acción no se puede deshacer.',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = 'grupos_familiares_actions.php?action=eliminar&id=' + id;
+            }
+        });
+    }
+}
+
+function nuevoRol() {
+    window.location.href = 'roles.php';
+}
+
+function editarRol(id) {
+    console.log('Editar rol:', id);
+    // Implementar edición de rol
+}
+
+function eliminarRol(id) {
+    console.log('Eliminar rol:', id);
+    // Implementar eliminación de rol
+}
+
+// Función eliminada - ya no se usa
+
+// Función eliminada - ya no se usa
+
+// Inicialización eliminada - ya no se usa
 </script>
+
+<style>
+/* Estilos personalizados */
+
+.dropdown-item {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: #495057;
+}
+
+.dropdown-item i {
+    width: 16px;
+    margin-right: 8px;
+    text-align: center;
+}
+
+.dropdown-divider {
+    margin: 0.5rem 0;
+    border-top: 1px solid #dee2e6;
+}
+
+.dropdown-toggle::after {
+    margin-left: 0.5rem;
+}
+
+/* Mejorar el botón principal del dropdown */
+#dropdownMenuButton {
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+    .dropdown-menu {
+        min-width: 180px;
+    }
+    
+    .dropdown-item {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.85rem;
+    }
+}
+</style>
 
 <?php include '../includes/footer.php'; ?>
