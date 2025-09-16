@@ -442,7 +442,7 @@ if (isset($_SESSION['error'])) {
                     <!-- Búsqueda - Ocupa todo el ancho en móviles -->
                     <div class="col-12 col-md-6 mb-3 mb-md-0">
                         <div class="input-group">
-                            <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas..." oninput="filtrarPersonas()">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas..." oninput="filtrarPersonas()" onkeydown="prevenirEnter(event)">
                             <button class="btn btn-outline-secondary" type="button" onclick="filtrarPersonas()">
                                 <i class="fas fa-search"></i>
                             </button>
@@ -450,7 +450,7 @@ if (isset($_SESSION['error'])) {
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
-                        <small class="text-muted d-none d-md-block">La búsqueda se actualiza automáticamente mientras escribes</small>
+                        <small class="text-muted d-none d-md-block">La búsqueda se actualiza automáticamente mientras escribes (Enter deshabilitado)</small>
                         <div id="estadoBusqueda" class="mt-1" style="display: none;">
                             <span class="badge bg-info">Buscando...</span>
                         </div>
@@ -910,10 +910,19 @@ if (isset($_SESSION['error'])) {
                                 title: 'Éxito',
                                 text: 'Visita agregada y asistencia registrada correctamente'
                             }).then(() => {
-                                // Cerrar modal y recargar página
+                                // Cerrar modal
                                 const modal = bootstrap.Modal.getInstance(document.getElementById('modalAgregarVisita'));
                                 modal.hide();
-                                location.reload();
+                                
+                                // Actualizar contador de asistencias inmediatamente
+                                setTimeout(() => {
+                                    actualizarContadorAsistencias();
+                                }, 500);
+                                
+                                // Recargar página después de un breve delay para mostrar el contador actualizado
+                                setTimeout(() => {
+                                    location.reload();
+                                }, 1000);
                             });
                         } else {
                             Swal.fire({
@@ -1144,6 +1153,7 @@ if (isset($_SESSION['error'])) {
                                 
                                 // Actualizar contador de asistencias (con manejo de errores)
                                 try {
+                                    // Actualizar inmediatamente para mostrar el cambio
                                     actualizarContadorAsistencias();
                                 } catch (e) {
                                     console.warn('Error al actualizar contador:', e);
@@ -1273,6 +1283,11 @@ if (isset($_SESSION['error'])) {
                 // Función para obtener el conteo de visitas del culto
                 function obtenerConteoVisitasCulto(totalPersonas, asistenciasPersonas) {
                     const cultoId = window.cultoId;
+                    console.log('🔍 Debug obtenerConteoVisitasCulto:');
+                    console.log('  - cultoId:', cultoId);
+                    console.log('  - totalPersonas:', totalPersonas);
+                    console.log('  - asistenciasPersonas:', asistenciasPersonas);
+                    
                     if (!cultoId) {
                         console.warn('⚠️ No se encontró cultoId para obtener visitas');
                         mostrarContador(totalPersonas, asistenciasPersonas, 0);
@@ -1283,43 +1298,65 @@ if (isset($_SESSION['error'])) {
                     formData.append('action', 'obtener_conteo_visitas_culto');
                     formData.append('culto_id', cultoId);
                     
+                    console.log('📡 Enviando petición para obtener visitas del culto:', cultoId);
+                    
                     fetch('asistencias_actions.php', {
                         method: 'POST',
                         body: formData
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        console.log('📡 Respuesta recibida:', response.status);
+                        return response.json();
+                    })
                     .then(data => {
+                        console.log('📡 Datos recibidos:', data);
                         if (data.success) {
                             const totalVisitas = data.total_visitas || 0;
-                            console.log(`📊 Visitas del culto: ${totalVisitas}`);
+                            console.log(`📊 Visitas del culto ${cultoId}: ${totalVisitas}`);
                             mostrarContador(totalPersonas, asistenciasPersonas, totalVisitas);
                         } else {
-                            console.error('Error al obtener conteo de visitas:', data.message);
+                            console.error('❌ Error al obtener conteo de visitas:', data.message);
                             mostrarContador(totalPersonas, asistenciasPersonas, 0);
                         }
                     })
                     .catch(error => {
-                        console.error('Error en la petición de visitas:', error);
+                        console.error('❌ Error en la petición de visitas:', error);
                         mostrarContador(totalPersonas, asistenciasPersonas, 0);
                     });
                 }
                 
                 // Función para mostrar el contador con personas y visitas
                 function mostrarContador(totalPersonas, asistenciasPersonas, totalVisitas) {
+                    console.log('🎯 Debug mostrarContador:');
+                    console.log('  - totalPersonas:', totalPersonas);
+                    console.log('  - asistenciasPersonas:', asistenciasPersonas);
+                    console.log('  - totalVisitas:', totalVisitas);
+                    
                     const totalAsistentes = asistenciasPersonas + totalVisitas;
                     const totalPersonasYVisitas = totalPersonas + totalVisitas;
+                    
+                    console.log('  - totalAsistentes:', totalAsistentes);
+                    console.log('  - totalPersonasYVisitas:', totalPersonasYVisitas);
                     
                     // Buscar o crear el contador
                     let contador = document.getElementById('contadorAsistencias');
                     if (!contador) {
                         contador = document.createElement('div');
                         contador.id = 'contadorAsistencias';
-                        contador.className = 'mt-2';
+                        contador.className = 'ms-3';
                         
-                        // Insertar después del mensaje de info
-                        const infoDiv = document.querySelector('.text-muted');
-                        if (infoDiv && infoDiv.parentNode) {
-                            infoDiv.parentNode.insertBefore(contador, infoDiv.nextSibling);
+                        // Insertar al lado derecho del título de asistencias
+                        const cardHeader = document.querySelector('.card-header.d-flex.justify-content-between.align-items-center');
+                        if (cardHeader) {
+                            // Buscar si ya existe un contenedor para el contador
+                            let contadorContainer = document.getElementById('contadorContainer');
+                            if (!contadorContainer) {
+                                contadorContainer = document.createElement('div');
+                                contadorContainer.id = 'contadorContainer';
+                                contadorContainer.className = 'd-flex align-items-center';
+                                cardHeader.appendChild(contadorContainer);
+                            }
+                            contadorContainer.appendChild(contador);
                         }
                     }
                     
@@ -1331,12 +1368,14 @@ if (isset($_SESSION['error'])) {
                                 <br><small class="text-info">(${asistenciasPersonas} personas + ${totalVisitas} visitas)</small>
                             </small>
                         `;
+                        console.log('✅ Contador mostrado CON visitas:', `${totalAsistentes}/${totalPersonasYVisitas} (${asistenciasPersonas} personas + ${totalVisitas} visitas)`);
                     } else {
                         contador.innerHTML = `
                             <small class="text-success">
                                 <i class="fas fa-check-circle"></i> ${asistenciasPersonas} de ${totalPersonas} personas han marcado asistencia
                             </small>
                         `;
+                        console.log('✅ Contador mostrado SIN visitas:', `${asistenciasPersonas}/${totalPersonas} personas`);
                     }
                     
                     console.log('🎯 Contador final:', `${totalAsistentes}/${totalPersonasYVisitas} (${asistenciasPersonas} personas + ${totalVisitas} visitas)`);
@@ -1674,7 +1713,16 @@ if (isset($_SESSION['error'])) {
                                     }).then(() => {
                                         const modal = bootstrap.Modal.getInstance(document.getElementById('modalMultiplesVisitas'));
                                         modal.hide();
-                                        location.reload();
+                                        
+                                        // Actualizar contador de asistencias inmediatamente
+                                        setTimeout(() => {
+                                            actualizarContadorAsistencias();
+                                        }, 500);
+                                        
+                                        // Recargar página después de un breve delay para mostrar el contador actualizado
+                                        setTimeout(() => {
+                                            location.reload();
+                                        }, 1000);
                                     });
                                 } else {
                                     Swal.fire({
@@ -1777,9 +1825,25 @@ if (isset($_SESSION['error'])) {
                 
                 <!-- Paginación -->
                 <div class="row mt-3">
-                    <!-- Selector de items por página - Oculto en móviles muy pequeños -->
-                    <div class="col-6 col-md-4 mb-2 mb-md-0">
-                        <div class="d-flex align-items-center">
+                    <!-- Navegación de páginas - Movida a la izquierda -->
+                    <div class="col-12 col-md-4 mb-2 mb-md-0">
+                        <nav aria-label="Navegación de páginas">
+                            <ul class="pagination pagination-sm justify-content-start mb-0" id="paginacion">
+                                <!-- La paginación se generará dinámicamente -->
+                            </ul>
+                        </nav>
+                    </div>
+                    
+                    <!-- Información de registros -->
+                    <div class="col-12 col-md-4 text-center">
+                        <small class="text-muted" id="infoRegistros">
+                            <!-- La información se generará dinámicamente -->
+                        </small>
+                    </div>
+                    
+                    <!-- Selector de items por página - Movido a la derecha -->
+                    <div class="col-12 col-md-4">
+                        <div class="d-flex align-items-center justify-content-end">
                             <label class="me-2 d-none d-sm-inline">Mostrar:</label>
                             <label class="me-2 d-inline d-sm-none">Items:</label>
                             <select class="form-select form-select-sm me-2" id="itemsPorPagina" onchange="cambiarItemsPorPagina()" style="width: auto;">
@@ -1791,26 +1855,10 @@ if (isset($_SESSION['error'])) {
                             <span class="text-muted d-none d-md-inline">registros por página</span>
                         </div>
                     </div>
-                    
-                    <!-- Información de registros -->
-                    <div class="col-6 col-md-4 text-center">
-                        <small class="text-muted" id="infoRegistros">
-                            <!-- La información se generará dinámicamente -->
-                        </small>
-                    </div>
-                    
-                    <!-- Navegación de páginas -->
-                    <div class="col-12 col-md-4">
-                        <nav aria-label="Navegación de páginas">
-                            <ul class="pagination pagination-sm justify-content-center justify-content-md-end mb-0" id="paginacion">
-                                <!-- La paginación se generará dinámicamente -->
-                            </ul>
-                        </nav>
-                    </div>
                 </div>
                 
                 <!-- Botones flotantes para agregar -->
-                <div class="botones-flotantes">
+                <div class="botones-flotantes" id="botonesFlotantes">
                     <button type="button" class="btn btn-primary btn-lg" onclick="abrirModalPersona()">
                         <i class="fas fa-user"></i> Agregar Persona
                     </button>
@@ -1819,6 +1867,9 @@ if (isset($_SESSION['error'])) {
                     </button>
                     <button type="button" class="btn btn-success btn-lg" onclick="abrirModalMultiplesVisitas()">
                         <i class="fas fa-users"></i> Múltiples Visitas
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm btn-toggle" onclick="toggleBotonesFlotantes()" title="Colapsar/Expandir">
+                        <i class="fas fa-chevron-up" id="iconToggle"></i>
                     </button>
                 </div>
                 
@@ -1861,9 +1912,11 @@ if (isset($_SESSION['error'])) {
                         <?php
                         try {
                             $pdo = conectarDB();
-                            $stmt = $pdo->query("SELECT c.*, COUNT(a.PERSONA_ID) as asistentes 
+                            $stmt = $pdo->query("SELECT c.*, 
+                                               (COUNT(DISTINCT a.PERSONA_ID) + COUNT(DISTINCT av.VISITA_ID)) as asistentes 
                                                FROM cultos c 
                                                LEFT JOIN asistencias a ON c.ID = a.CULTO_ID 
+                                               LEFT JOIN asistencias_visitas av ON c.ID = av.CULTO_ID 
                                                GROUP BY c.ID 
                                                ORDER BY c.FECHA DESC, c.FECHA_CREACION DESC");
                             while ($row = $stmt->fetch()) {
@@ -2165,10 +2218,32 @@ if (isset($_SESSION['error'])) {
     border: none;
 }
 
+.botones-flotantes .btn-toggle {
+    background: linear-gradient(135deg, #6c757d, #495057);
+    border: none;
+    min-width: 50px;
+    padding: 8px 12px;
+    border-radius: 50px;
+    margin-top: 5px;
+}
+
+.botones-flotantes .btn-toggle:hover {
+    background: linear-gradient(135deg, #495057, #343a40);
+    transform: translateY(-1px);
+}
+
+.botones-flotantes.colapsado .btn:not(.btn-toggle) {
+    display: none;
+}
+
+.botones-flotantes.colapsado .btn-toggle i {
+    transform: rotate(180deg);
+}
+
 /* Responsive para botones flotantes */
 @media (max-width: 768px) {
     .botones-flotantes {
-        bottom: 15px;
+        bottom: 20px;
         right: 15px;
         left: 15px;
         flex-direction: row;
@@ -2186,7 +2261,7 @@ if (isset($_SESSION['error'])) {
 
 @media (max-width: 480px) {
     .botones-flotantes {
-        bottom: 10px;
+        bottom: 15px;
         right: 10px;
         left: 10px;
         gap: 5px;
@@ -2202,11 +2277,56 @@ if (isset($_SESSION['error'])) {
     }
 }
 
+/* Estilos para el contador de asistencias al lado del título */
+#contadorContainer {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 6px;
+    padding: 6px 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid #dee2e6;
+}
+
+#contadorAsistencias {
+    font-weight: 600;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+#contadorAsistencias .text-success {
+    color: #28a745 !important;
+}
+
+#contadorAsistencias .text-info {
+    color: #17a2b8 !important;
+}
+
+/* Responsive para el contador */
+@media (max-width: 768px) {
+    #contadorContainer {
+        padding: 4px 8px;
+        margin-top: 8px;
+    }
+    
+    #contadorAsistencias {
+        font-size: 0.8rem;
+    }
+    
+    .card-header.d-flex {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+}
+
 /* Estilos personalizados para dispositivos móviles */
 @media (max-width: 767.98px) {
     /* Optimización de tablas para móviles */
     .table-responsive {
         border: none;
+    }
+    
+    /* Espacio normal para paginación */
+    .pagination {
+        margin-bottom: 1rem !important;
     }
     
     .table-sm td, .table-sm th {
@@ -2350,6 +2470,32 @@ function normalizarTexto(texto) {
 }
 
 // Función para filtrar personas
+// Función para prevenir el comportamiento del Enter en el campo de búsqueda
+function prevenirEnter(event) {
+    if (event.key === 'Enter' || event.keyCode === 13) {
+        event.preventDefault();
+        return false;
+    }
+}
+
+// Función para eliminar duplicados de un array de personas
+function eliminarDuplicados(arrayPersonas) {
+    const personasUnicas = [];
+    const idsVistos = new Set();
+    
+    arrayPersonas.forEach(persona => {
+        // Usar ID como identificador único, si no existe, usar combinación de nombre + apellido
+        const identificador = persona.id || `${persona.nombres || ''}_${persona.apellidoPaterno || ''}`;
+        
+        if (!idsVistos.has(identificador)) {
+            idsVistos.add(identificador);
+            personasUnicas.push(persona);
+        }
+    });
+    
+    return personasUnicas;
+}
+
 function filtrarPersonas() {
     const busqueda = document.getElementById('searchInput').value.toLowerCase().trim();
     const estadoBusqueda = document.getElementById('estadoBusqueda');
@@ -2362,14 +2508,14 @@ function filtrarPersonas() {
     }
     
     if (busqueda === '') {
-        // Si no hay búsqueda, mostrar todas las personas
-        datosFiltrados = [...datosPersonas];
+        // Si no hay búsqueda, mostrar todas las personas (eliminando duplicados)
+        datosFiltrados = eliminarDuplicados([...datosPersonas]);
     } else {
         // Normalizar el texto de búsqueda
         const busquedaNormalizada = normalizarTexto(busqueda);
         
         // Filtrar por nombre, apellido, familia o grupo familiar
-        datosFiltrados = datosPersonas.filter(persona => {
+        const resultadosFiltrados = datosPersonas.filter(persona => {
             const nombres = normalizarTexto(persona.nombres || '');
             const apellidoPaterno = normalizarTexto(persona.apellidoPaterno || '');
             const familia = normalizarTexto(persona.familia || '');
@@ -2380,6 +2526,9 @@ function filtrarPersonas() {
                    familia.includes(busquedaNormalizada) ||
                    grupoFamiliar.includes(busquedaNormalizada);
         });
+        
+        // Eliminar duplicados de los resultados filtrados
+        datosFiltrados = eliminarDuplicados(resultadosFiltrados);
     }
     
     // Reiniciar a la primera página
@@ -2452,7 +2601,9 @@ function aplicarOrdenamientoYFiltrado() {
             // Si no hay ordenamiento específico, aplicar el orden por defecto: grupo familiar, familia, apellido paterno
         // Priorizando filas con datos sobre las vacías
     if (ordenActual === 'ORIGINAL') {
-            datosOrdenados = [...datosFiltrados].sort((a, b) => {
+            // Eliminar duplicados antes de ordenar
+            const datosSinDuplicados = eliminarDuplicados([...datosFiltrados]);
+            datosOrdenados = datosSinDuplicados.sort((a, b) => {
                 // Primero por grupo familiar (priorizar los que tienen datos)
                 const grupoA = a.grupoFamiliar || '';
                 const grupoB = b.grupoFamiliar || '';
@@ -2491,8 +2642,9 @@ function aplicarOrdenamientoYFiltrado() {
                 return apellidoA.localeCompare(apellidoB);
             });
     } else {
-        // Aplicar ordenamiento personalizado
-        datosOrdenados = [...datosFiltrados].sort((a, b) => {
+        // Aplicar ordenamiento personalizado (eliminando duplicados primero)
+        const datosSinDuplicados = eliminarDuplicados([...datosFiltrados]);
+        datosOrdenados = datosSinDuplicados.sort((a, b) => {
             let valorA, valorB;
             
             switch (ordenActual) {
@@ -2817,6 +2969,22 @@ function actualizarInfoRegistros(total, inicio, fin) {
     }
 }
 
+// Función para colapsar/expandir botones flotantes
+function toggleBotonesFlotantes() {
+    const botonesFlotantes = document.getElementById('botonesFlotantes');
+    const iconToggle = document.getElementById('iconToggle');
+    
+    if (botonesFlotantes.classList.contains('colapsado')) {
+        botonesFlotantes.classList.remove('colapsado');
+        iconToggle.className = 'fas fa-chevron-up';
+    } else {
+        botonesFlotantes.classList.add('colapsado');
+        iconToggle.className = 'fas fa-chevron-down';
+    }
+}
+
+// Función eliminada - ya no se necesita manejo automático de visibilidad
+
 // Función para cargar datos iniciales
 function cargarDatosIniciales() {
     // Verificar si estamos en la vista de tomar asistencia o en la lista de cultos
@@ -2938,9 +3106,16 @@ function cargarTodasLasPersonas() {
                     console.log('✅ Todas las personas cargadas:', resultado.personas.length);
                     console.log('📋 Primeras 3 personas:', resultado.personas.slice(0, 3));
                     
-                    // Asignar a la variable global
-                    window.datosPersonas = resultado.personas;
-                    datosPersonas = resultado.personas;
+                    // Asignar a la variable global (eliminando duplicados)
+                    const personasSinDuplicados = eliminarDuplicados(resultado.personas);
+                    const duplicadosEliminados = resultado.personas.length - personasSinDuplicados.length;
+                    
+                    if (duplicadosEliminados > 0) {
+                        console.log(`🧹 Se eliminaron ${duplicadosEliminados} duplicados de ${resultado.personas.length} personas`);
+                    }
+                    
+                    window.datosPersonas = personasSinDuplicados;
+                    datosPersonas = personasSinDuplicados;
                     
                     console.log('🔒 Variable global datosPersonas asignada:', window.datosPersonas.length, 'personas');
                     resolve();
@@ -2974,8 +3149,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Solo actualizar botones de ordenamiento si estamos en la vista de tomar asistencia
     const tablaAsistencias = document.querySelector('.table-asistencias');
     if (tablaAsistencias) {
-    actualizarBotonesOrdenamiento();
+        actualizarBotonesOrdenamiento();
     }
+    
+    // Los botones flotantes mantienen su funcionalidad normal
     
     // Listener para cambios de tamaño de ventana (para paginación responsive)
     window.addEventListener('resize', function() {
