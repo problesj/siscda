@@ -5,180 +5,351 @@
 </div>
 
 <!-- Pestañas de navegación -->
+<ul class="nav nav-tabs" id="mainTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="personas-tab" data-bs-toggle="tab" data-bs-target="#personas" type="button" role="tab" aria-controls="personas" aria-selected="true">
+            <i class="fas fa-user-friends"></i> Personas
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="grupos-tab" data-bs-toggle="tab" data-bs-target="#grupos" type="button" role="tab" aria-controls="grupos" aria-selected="false">
+            <i class="fas fa-home"></i> Grupos Familiares
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="roles-tab" data-bs-toggle="tab" data-bs-target="#roles" type="button" role="tab" aria-controls="roles" aria-selected="false">
+            <i class="fas fa-user-tag"></i> Roles
+        </button>
+    </li>
+</ul>
 
-<?php
-// Variables para SweetAlert2
-$successMessage = '';
-$errorMessage = '';
+<div class="tab-content" id="mainTabsContent">
+			<!-- Pestaña de Personas -->
+			<div class="tab-pane fade show active" id="personas" role="tabpanel" aria-labelledby="personas-tab">
 
-if (isset($_SESSION['success'])) {
-    $successMessage = $_SESSION['success'];
-    unset($_SESSION['success']);
-}
-if (isset($_SESSION['error'])) {
-    $errorMessage = $_SESSION['error'];
-    unset($_SESSION['error']);
-}
+				<?php
+		// Variables para SweetAlert2
+		$successMessage = '';
+		$errorMessage = '';
 
-try {
-    $pdo = conectarDB();
-    
-    // Obtener todas las personas para el filtrado en tiempo real
-    $sql = "SELECT p.*, gf.NOMBRE as GRUPO_FAMILIAR_NOMBRE, r.nombre_rol as ROL_NOMBRE 
-            FROM personas p 
-            LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID 
-            LEFT JOIN roles r ON p.ROL = r.id 
-            ORDER BY p.FAMILIA, p.APELLIDO_PATERNO, p.NOMBRES";
-    
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $personas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Convertir a JSON para JavaScript
-    $personas_json = json_encode($personas);
-    
-    // Obtener grupos familiares
-    $sql_grupos = "SELECT gf.*, COUNT(p.ID) as miembros 
-                   FROM grupos_familiares gf 
-                   LEFT JOIN personas p ON gf.ID = p.GRUPO_FAMILIAR_ID 
-                   GROUP BY gf.ID 
-                   ORDER BY gf.ID";
-    
-    $stmt_grupos = $pdo->prepare($sql_grupos);
-    $stmt_grupos->execute();
-    $grupos = $stmt_grupos->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Debug: verificar datos
-    error_log("Grupos cargados: " . print_r($grupos, true));
-    
-    // Convertir a JSON para JavaScript
-    $grupos_json = json_encode($grupos);
-} catch (PDOException $e) {
-    echo '<div class="alert alert-danger">Error al cargar las personas: ' . htmlspecialchars($e->getMessage()) . '</div>';
-    $personas = [];
-    $personas_json = '[]';
-    $grupos = [];
-    $grupos_json = '[]';
-}
-?>
+		if (isset($_SESSION['success'])) {
+			$successMessage = $_SESSION['success'];
+			unset($_SESSION['success']);
+		}
+		if (isset($_SESSION['error'])) {
+			$errorMessage = $_SESSION['error'];
+			unset($_SESSION['error']);
+		}
 
-<!-- Gestión de Personas -->
-<div class="card shadow mb-4">
-            <div class="card-header py-3 d-flex justify-content-between align-items-center">
-        <h6 class="m-0 font-weight-bold text-primary">Listado de Personas</h6>
-                <div class="btn-group">
-                    <button class="btn btn-success" onclick="exportarExcel()">
-                        <i class="fas fa-file-excel"></i> Exportar Excel
-                    </button>
-                    <button class="btn btn-info" onclick="exportarFormatoAsistencia()">
-                        <i class="fas fa-clipboard-list"></i> Formato Asistencia
-                    </button>
-                    <button class="btn btn-primary" onclick="nuevoPersona()">
-                        <i class="fas fa-plus"></i> Nueva Persona
-                    </button>
-                </div>
-    </div>
-    <div class="card-body">
-        <!-- Campo de búsqueda -->
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <div class="input-group">
-                    <span class="input-group-text">
-                        <i class="fas fa-search"></i>
-                    </span>
-                    <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas..." oninput="filtrarPersonas()">
-                </div>
+		try {
+			$pdo = conectarDB();
+			
+			// Obtener todas las personas para el filtrado en tiempo real
+			$sql = "SELECT p.*, gf.NOMBRE as GRUPO_FAMILIAR_NOMBRE, r.nombre_rol as ROL_NOMBRE 
+					FROM personas p 
+					LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID 
+					LEFT JOIN roles r ON p.ROL = r.id 
+					ORDER BY p.FAMILIA, p.APELLIDO_PATERNO, p.NOMBRES";
+			
+			$stmt = $pdo->prepare($sql);
+			$stmt->execute();
+			$personas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+			
+			// Convertir a JSON para JavaScript
+			$personas_json = json_encode($personas);
+			
+			// Obtener grupos familiares
+			$sql_grupos = "SELECT gf.*, COUNT(p.ID) as miembros 
+						FROM grupos_familiares gf 
+						LEFT JOIN personas p ON gf.ID = p.GRUPO_FAMILIAR_ID 
+						GROUP BY gf.ID 
+						ORDER BY gf.ID";
+			
+			$stmt_grupos = $pdo->prepare($sql_grupos);
+			$stmt_grupos->execute();
+			$grupos = $stmt_grupos->fetchAll(PDO::FETCH_ASSOC);
+			
+			// Debug: verificar datos
+			error_log("Grupos cargados: " . print_r($grupos, true));
+			
+			// Convertir a JSON para JavaScript
+			$grupos_json = json_encode($grupos);
+		} catch (PDOException $e) {
+			echo '<div class="alert alert-danger">Error al cargar las personas: ' . htmlspecialchars($e->getMessage()) . '</div>';
+			$personas = [];
+			$personas_json = '[]';
+			$grupos = [];
+			$grupos_json = '[]';
+		}
+	?>
+
+				<!-- Gestión de Personas -->
+				<div class="card shadow mb-4">
+					<div class="card-header py-3 d-flex justify-content-between align-items-center">
+						<h6 class="m-0 font-weight-bold text-primary">Listado de Personas</h6>
+						<div class="btn-group">
+							<button class="btn btn-success" onclick="exportarExcel()">
+								<i class="fas fa-file-excel"></i> Exportar Excel
+							</button>
+							<button class="btn btn-info" onclick="exportarFormatoAsistencia()">
+								<i class="fas fa-clipboard-list"></i> Formato Asistencia
+							</button>
+							<button class="btn btn-primary" onclick="nuevoPersona()">
+								<i class="fas fa-plus"></i> Nueva Persona
+							</button>
+						</div>
+					</div>
+					<div class="card-body">
+						<!-- Campo de búsqueda -->
+						<div class="row mb-3">
+							<div class="col-md-6">
+								<div class="input-group">
+									<span class="input-group-text">
+										<i class="fas fa-search"></i>
+									</span>
+									<input type="text" class="form-control" id="searchInput" placeholder="Buscar personas..." oninput="filtrarPersonas()">
+								</div>
+							</div>
+							<div class="col-md-6 text-end">
+								<div class="d-flex align-items-center justify-content-end">
+									<label for="itemsPorPagina" class="me-2">Items:</label>
+									<select class="form-select form-select-sm me-2" id="itemsPorPagina" onchange="cambiarItemsPorPagina()" style="width: auto;">
+										<option value="10">10</option>
+										<option value="25" selected>25</option>
+										<option value="50">50</option>
+										<option value="100">100</option>
+									</select>
+									<span id="infoRegistros" class="text-muted"></span>
+								</div>
+							</div>
+						</div>
+					
+						<!-- Botones de ordenamiento -->
+						<div class="row mb-3">
+							<div class="col-12">
+								<div class="d-flex flex-column flex-md-row justify-content-md-end">
+									<div class="btn-group-vertical btn-group-sm d-md-none mb-2" role="group">
+										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('FAMILIA')">
+											<i class="fas fa-sort"></i> Familia
+										</button>
+										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('GRUPO_FAMILIAR')">
+											<i class="fas fa-sort"></i> Grupo Familiar
+										</button>
+										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('APELLIDO_PATERNO')">
+											<i class="fas fa-sort"></i> Apellido
+										</button>
+										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('NOMBRES')">
+											<i class="fas fa-sort"></i> Nombres
+										</button>
+									</div>
+									<div class="btn-group d-none d-md-flex" role="group">
+										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('FAMILIA')">
+											<i class="fas fa-sort"></i> Familia
+										</button>
+										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('GRUPO_FAMILIAR')">
+											<i class="fas fa-sort"></i> Grupo Familiar
+										</button>
+										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('APELLIDO_PATERNO')">
+											<i class="fas fa-sort"></i> Apellido
+										</button>
+										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('NOMBRES')">
+											<i class="fas fa-sort"></i> Nombres
+										</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					
+						<!-- Indicador de estado de búsqueda -->
+						<div id="estadoBusqueda" class="alert alert-info" style="display: none;">
+							<i class="fas fa-search"></i> Búsqueda en tiempo real activa
+						</div>
+					
+						<div class="table-responsive">
+							<table class="table table-bordered" id="tablaPersonas" width="100%" cellspacing="0">
+								<thead>
+									<tr>
+										<th>ID</th>
+										<th>Imagen</th>
+										<th>RUT</th>
+										<th>Nombres</th>
+										<th>Apellido Paterno</th>
+										<th>Apellido Materno</th>
+										<th>Familia</th>
+										<th>Rol</th>
+										<th>Grupo Familiar</th>
+										<th>Acciones</th>
+									</tr>
+								</thead>
+								<tbody>
+									<!-- Se llenará dinámicamente con JavaScript -->
+								</tbody>
+							</table>
+						</div>
+						
+						<!-- Paginación del lado del cliente -->
+						<div class="row mt-3">
+							<div class="col-12">
+									<nav aria-label="Navegación de páginas">
+									<ul class="pagination justify-content-center mb-0" id="paginacion">
+										<!-- Se generará dinámicamente con JavaScript -->
+										</ul>
+									</nav>
+							</div>
+						</div>
+					</div>
+				</div>
             </div>
-            <div class="col-md-6 text-end">
-                <div class="d-flex align-items-center justify-content-end">
-                    <label for="itemsPorPagina" class="me-2">Items:</label>
-                    <select class="form-select form-select-sm me-2" id="itemsPorPagina" onchange="cambiarItemsPorPagina()" style="width: auto;">
-                        <option value="10">10</option>
-                        <option value="25" selected>25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
-                    <span id="infoRegistros" class="text-muted"></span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Botones de ordenamiento -->
-        <div class="row mb-3">
-            <div class="col-12">
-                <div class="d-flex flex-column flex-md-row justify-content-md-end">
-                    <div class="btn-group-vertical btn-group-sm d-md-none mb-2" role="group">
-                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('FAMILIA')">
-                            <i class="fas fa-sort"></i> Familia
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('GRUPO_FAMILIAR')">
-                            <i class="fas fa-sort"></i> Grupo Familiar
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('APELLIDO_PATERNO')">
-                            <i class="fas fa-sort"></i> Apellido
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('NOMBRES')">
-                            <i class="fas fa-sort"></i> Nombres
-                        </button>
+
+            <!-- Pestaña de Grupos Familiares -->
+            <div class="tab-pane fade" id="grupos" role="tabpanel" aria-labelledby="grupos-tab">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-primary">Listado de Grupos Familiares</h6>
+                        <div class="btn-group">
+                            <button class="btn btn-success" onclick="exportarGruposExcel()">
+                                <i class="fas fa-file-excel"></i> Exportar Excel
+                            </button>
+                            <button class="btn btn-primary" onclick="abrirModalGrupo()">
+                                <i class="fas fa-plus"></i> Nuevo Grupo
+                            </button>
+                        </div>
                     </div>
-                    <div class="btn-group d-none d-md-flex" role="group">
-                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('FAMILIA')">
-                            <i class="fas fa-sort"></i> Familia
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('GRUPO_FAMILIAR')">
-                            <i class="fas fa-sort"></i> Grupo Familiar
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('APELLIDO_PATERNO')">
-                            <i class="fas fa-sort"></i> Apellido
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('NOMBRES')">
-                            <i class="fas fa-sort"></i> Nombres
-                        </button>
+                    <div class="card-body">
+                        <!-- Campo de búsqueda -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="searchInputGrupos" placeholder="Buscar grupos..." oninput="filtrarGrupos()">
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <label for="itemsPorPaginaGrupos" class="me-2">Items:</label>
+                                    <select class="form-select form-select-sm me-2" id="itemsPorPaginaGrupos" onchange="cambiarItemsPorPaginaGrupos()" style="width: auto;">
+                                        <option value="10">10</option>
+                                        <option value="25" selected>25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                    <span id="infoRegistrosGrupos" class="text-muted"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Indicador de estado de búsqueda -->
+                        <div id="estadoBusquedaGrupos" class="alert alert-info" style="display: none;">
+                            <i class="fas fa-search"></i> Búsqueda en tiempo real activa
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="tablaGrupos" width="100%" cellspacing="0">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nombre</th>
+                                        <th>Miembros</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyGrupos">
+                                    <!-- Se llenará dinámicamente con JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginación del lado del cliente -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <nav aria-label="Navegación de páginas">
+                                    <ul class="pagination justify-content-center mb-0" id="paginacionGrupos">
+                                        <!-- Se generará dinámicamente con JavaScript -->
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Indicador de estado de búsqueda -->
-        <div id="estadoBusqueda" class="alert alert-info" style="display: none;">
-            <i class="fas fa-search"></i> Búsqueda en tiempo real activa
-        </div>
-        
-        <div class="table-responsive">
-            <table class="table table-bordered" id="tablaPersonas" width="100%" cellspacing="0">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Imagen</th>
-                        <th>RUT</th>
-                        <th>Nombres</th>
-                        <th>Apellido Paterno</th>
-                        <th>Apellido Materno</th>
-                        <th>Familia</th>
-                        <th>Rol</th>
-                        <th>Grupo Familiar</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Se llenará dinámicamente con JavaScript -->
-                </tbody>
-            </table>
-        </div>
             
-        <!-- Paginación del lado del cliente -->
-            <div class="row mt-3">
-            <div class="col-12">
-                    <nav aria-label="Navegación de páginas">
-                    <ul class="pagination justify-content-center mb-0" id="paginacion">
-                        <!-- Se generará dinámicamente con JavaScript -->
-                        </ul>
-                    </nav>
+            <!-- Pestaña de Roles -->
+            <div class="tab-pane fade" id="roles" role="tabpanel" aria-labelledby="roles-tab">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-primary">Listado de Roles</h6>
+                        <div class="btn-group">
+                            <button class="btn btn-success" onclick="exportarRolesExcel()">
+                                <i class="fas fa-file-excel"></i> Exportar Excel
+                            </button>
+                            <button class="btn btn-primary" onclick="abrirModalRol()">
+                                <i class="fas fa-plus"></i> Nuevo Rol
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Campo de búsqueda -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="searchInputRoles" placeholder="Buscar roles..." oninput="filtrarRoles()">
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <label for="itemsPorPaginaRoles" class="me-2">Items:</label>
+                                    <select class="form-select form-select-sm me-2" id="itemsPorPaginaRoles" onchange="cambiarItemsPorPaginaRoles()" style="width: auto;">
+                                        <option value="10">10</option>
+                                        <option value="25" selected>25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                    <span id="infoRegistrosRoles" class="text-muted"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Indicador de estado de búsqueda -->
+                        <div id="estadoBusquedaRoles" class="alert alert-info" style="display: none;">
+                            <i class="fas fa-search"></i> Búsqueda en tiempo real activa
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="tablaRoles" width="100%" cellspacing="0">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nombre del Rol</th>
+                                        <th>Descripción</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyRoles">
+                                    <!-- Se llenará dinámicamente con JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginación del lado del cliente -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <nav aria-label="Navegación de páginas">
+                                    <ul class="pagination justify-content-center mb-0" id="paginacionRoles">
+                                        <!-- Se generará dinámicamente con JavaScript -->
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            </div>
-        </div>
-    </div>
 </div>
+
 
 <!-- Modal para Persona -->
 <div class="modal fade" id="modalPersona" tabindex="-1">
@@ -332,6 +503,63 @@ try {
     </div>
 </div>
 
+<!-- Modal para Grupo Familiar -->
+<div class="modal fade" id="modalGrupo" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalGrupoTitle">Nuevo Grupo Familiar</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+                <div class="modal-body">
+                <form id="formGrupo">
+                    <input type="hidden" id="grupoId" name="id">
+                    <div class="mb-3">
+                        <label for="grupoNombre" class="form-label">Nombre del Grupo *</label>
+                        <input type="text" class="form-control" id="grupoNombre" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="grupoDescripcion" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="grupoDescripcion" name="descripcion" rows="3"></textarea>
+                    </div>
+                </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarGrupo()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Rol -->
+<div class="modal fade" id="modalRol" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalRolTitle">Nuevo Rol</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formRol">
+                    <input type="hidden" id="rolId" name="id">
+                    <div class="mb-3">
+                        <label for="rolNombre" class="form-label">Nombre del Rol *</label>
+                        <input type="text" class="form-control" id="rolNombre" name="nombre_rol" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="rolDescripcion" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="rolDescripcion" name="descripcion" rows="3"></textarea>
+                </div>
+            </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarRol()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
 // Variables globales para el sistema de búsqueda y paginación
@@ -1259,27 +1487,6 @@ function mostrarGrupos_Eliminada(grupos) {
     });
 }
 
-function cargarRoles() {
-    console.log('Cargando roles...');
-    fetch('roles_actions.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'action=obtener_roles'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            mostrarRoles(data.roles);
-        } else {
-            console.error('Error al cargar roles:', data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error de conexión:', error);
-    });
-}
 
 // Función eliminada - ya no se usa
 function mostrarRoles_Eliminada(roles) {
@@ -1356,29 +1563,425 @@ function eliminarGrupoFamiliar(id) {
     }
 }
 
-function nuevoRol() {
-    window.location.href = 'roles.php';
+// Variables globales para grupos y roles
+let datosGrupos = [];
+let datosRoles = [];
+
+// Funciones para Grupos Familiares
+function abrirModalGrupo(id = null) {
+    const modal = new bootstrap.Modal(document.getElementById('modalGrupo'));
+    const form = document.getElementById('formGrupo');
+    const title = document.getElementById('modalGrupoTitle');
+    
+    form.reset();
+    document.getElementById('grupoId').value = '';
+    
+    if (id) {
+        // Editar grupo existente
+        const grupo = datosGrupos.find(g => g.ID == id);
+        if (grupo) {
+            title.textContent = 'Editar Grupo Familiar';
+            document.getElementById('grupoId').value = grupo.ID;
+            document.getElementById('grupoNombre').value = grupo.NOMBRE;
+            document.getElementById('grupoDescripcion').value = grupo.DESCRIPCION || '';
+        }
+    } else {
+        title.textContent = 'Nuevo Grupo Familiar';
+    }
+    
+    modal.show();
+}
+
+function guardarGrupo() {
+    const form = document.getElementById('formGrupo');
+    const formData = new FormData(form);
+    const id = formData.get('id');
+    
+    const data = {
+        action: id ? 'editar_grupo' : 'crear_grupo',
+        id: id,
+        nombre: formData.get('nombre'),
+        descripcion: formData.get('descripcion')
+    };
+    
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalGrupo')).hide();
+            cargarGrupos();
+            Swal.fire('Éxito', result.message, 'success');
+        } else {
+            Swal.fire('Error', result.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire('Error', 'Error al guardar el grupo', 'error');
+    });
+}
+
+function editarGrupo(id) {
+    abrirModalGrupo(id);
+}
+
+function eliminarGrupo(id) {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('personas_actions.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    action: 'eliminar_grupo',
+                    id: id
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    cargarGrupos();
+                    Swal.fire('Eliminado', result.message, 'success');
+                } else {
+                    Swal.fire('Error', result.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'Error al eliminar el grupo', 'error');
+            });
+        }
+    });
+}
+
+function cargarGrupos() {
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=obtener_grupos'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            datosGrupos = data.grupos;
+            mostrarGrupos(data.grupos);
+        }
+    })
+    .catch(error => {
+        console.error('Error al cargar grupos:', error);
+    });
+}
+
+function mostrarGrupos(grupos) {
+    const tbody = document.getElementById('tbodyGrupos');
+    tbody.innerHTML = '';
+    
+    if (grupos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">No hay grupos familiares registrados</td></tr>';
+        return;
+    }
+    
+    grupos.forEach(grupo => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${grupo.ID}</td>
+            <td>${grupo.NOMBRE}</td>
+            <td class="text-center">${grupo.miembros || 0}</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-warning me-1" onclick="editarGrupo(${grupo.ID})">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="eliminarGrupo(${grupo.ID})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Funciones para Roles
+function abrirModalRol(id = null) {
+    const modal = new bootstrap.Modal(document.getElementById('modalRol'));
+    const form = document.getElementById('formRol');
+    const title = document.getElementById('modalRolTitle');
+    
+    form.reset();
+    document.getElementById('rolId').value = '';
+    
+    if (id) {
+        // Editar rol existente
+        const rol = datosRoles.find(r => r.id == id);
+        if (rol) {
+            title.textContent = 'Editar Rol';
+            document.getElementById('rolId').value = rol.id;
+            document.getElementById('rolNombre').value = rol.nombre_rol;
+            document.getElementById('rolDescripcion').value = rol.descripcion || '';
+        }
+    } else {
+        title.textContent = 'Nuevo Rol';
+    }
+    
+    modal.show();
+}
+
+function guardarRol() {
+    const form = document.getElementById('formRol');
+    const formData = new FormData(form);
+    const id = formData.get('id');
+    
+    const data = {
+        action: id ? 'editar_rol' : 'crear_rol',
+        id: id,
+        nombre_rol: formData.get('nombre_rol'),
+        descripcion: formData.get('descripcion')
+    };
+    
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalRol')).hide();
+            cargarRoles();
+            Swal.fire('Éxito', result.message, 'success');
+        } else {
+            Swal.fire('Error', result.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire('Error', 'Error al guardar el rol', 'error');
+    });
 }
 
 function editarRol(id) {
-    console.log('Editar rol:', id);
-    // Implementar edición de rol
+    abrirModalRol(id);
 }
 
 function eliminarRol(id) {
-    console.log('Eliminar rol:', id);
-    // Implementar eliminación de rol
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('personas_actions.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    action: 'eliminar_rol',
+                    id: id
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    cargarRoles();
+                    Swal.fire('Eliminado', result.message, 'success');
+                } else {
+                    Swal.fire('Error', result.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'Error al eliminar el rol', 'error');
+            });
+        }
+    });
 }
 
-// Función eliminada - ya no se usa
+function cargarRoles() {
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=obtener_roles'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            datosRoles = data.roles;
+            mostrarRoles(data.roles);
+        }
+    })
+    .catch(error => {
+        console.error('Error al cargar roles:', error);
+    });
+}
 
-// Función eliminada - ya no se usa
+function mostrarRoles(roles) {
+    const tbody = document.getElementById('tbodyRoles');
+    
+    if (!tbody) {
+        console.error('No se encontró el elemento tbodyRoles');
+        return;
+    }
+    
+    tbody.innerHTML = '';
+    
+    if (roles.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">No hay roles registrados</td></tr>';
+        return;
+    }
+    
+    roles.forEach(rol => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${rol.id}</td>
+            <td>${rol.nombre_rol}</td>
+            <td>${rol.descripcion || '-'}</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-warning me-1" onclick="editarRol(${rol.id})">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="eliminarRol(${rol.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
 
-// Inicialización eliminada - ya no se usa
+// Funciones de búsqueda para Grupos
+function filtrarGrupos() {
+    const busqueda = document.getElementById('searchInputGrupos').value.toLowerCase();
+    const gruposFiltrados = datosGrupos.filter(grupo => 
+        grupo.NOMBRE.toLowerCase().includes(busqueda) ||
+        grupo.ID.toString().includes(busqueda)
+    );
+    mostrarGrupos(gruposFiltrados);
+    
+    // Mostrar/ocultar indicador de búsqueda
+    const estadoBusqueda = document.getElementById('estadoBusquedaGrupos');
+    if (busqueda !== '') {
+        estadoBusqueda.style.display = 'block';
+    } else {
+        estadoBusqueda.style.display = 'none';
+    }
+}
+
+// Funciones de búsqueda para Roles
+function filtrarRoles() {
+    const busqueda = document.getElementById('searchInputRoles').value.toLowerCase();
+    const rolesFiltrados = datosRoles.filter(rol => 
+        rol.nombre_rol.toLowerCase().includes(busqueda) ||
+        rol.descripcion.toLowerCase().includes(busqueda) ||
+        rol.id.toString().includes(busqueda)
+    );
+    mostrarRoles(rolesFiltrados);
+    
+    // Mostrar/ocultar indicador de búsqueda
+    const estadoBusqueda = document.getElementById('estadoBusquedaRoles');
+    if (busqueda !== '') {
+        estadoBusqueda.style.display = 'block';
+    } else {
+        estadoBusqueda.style.display = 'none';
+    }
+}
+
+// Funciones de exportación
+function exportarGruposExcel() {
+    // Implementar exportación de grupos a Excel
+    console.log('Exportando grupos a Excel...');
+    // TODO: Implementar funcionalidad de exportación
+}
+
+function exportarRolesExcel() {
+    // Implementar exportación de roles a Excel
+    console.log('Exportando roles a Excel...');
+    // TODO: Implementar funcionalidad de exportación
+}
+
+// Funciones de paginación (placeholders)
+function cambiarItemsPorPaginaGrupos() {
+    // TODO: Implementar paginación para grupos
+    console.log('Cambiando items por página para grupos');
+}
+
+function cambiarItemsPorPaginaRoles() {
+    // TODO: Implementar paginación para roles
+    console.log('Cambiando items por página para roles');
+}
+
+// Función para cargar datos cuando se activa una pestaña
+function cargarDatosPestana(pestana) {
+    if (pestana === 'grupos') {
+        cargarGrupos();
+    } else if (pestana === 'roles') {
+        cargarRoles();
+    }
+}
+
+// Event listeners para las pestañas
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar datos cuando se activa una pestaña
+    const tabTriggers = document.querySelectorAll('#mainTabs button[data-bs-toggle="tab"]');
+    
+    tabTriggers.forEach(trigger => {
+        trigger.addEventListener('shown.bs.tab', function(event) {
+            const target = event.target.getAttribute('data-bs-target');
+            if (target === '#grupos') {
+                cargarGrupos();
+            } else if (target === '#roles') {
+                cargarRoles();
+            }
+        });
+    });
+});
 </script>
 
 <style>
 /* Estilos personalizados */
+
+/* Estilos para todas las pestañas - diseño consistente */
+.tab-content {
+    padding-top: 0.5rem;
+}
+
+.tab-pane {
+    padding-top: 0 !important;
+}
+
+/* Asegurar que todas las pestañas tengan el mismo espaciado */
+#personas,
+#grupos,
+#roles {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
 
 .dropdown-item {
     padding: 0.5rem 1rem;

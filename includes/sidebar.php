@@ -24,16 +24,6 @@
             </a>
         </li>
         <li class="nav-item">
-            <a class="nav-link" href="/siscda/modules/grupos_familiares.php">
-                <i class="fas fa-home"></i> Grupos Familiares
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="/siscda/modules/roles.php">
-                <i class="fas fa-user-tag"></i> Roles
-            </a>
-        </li>
-        <li class="nav-item">
             <a class="nav-link" href="/siscda/modules/cultos.php">
                 <i class="fas fa-church"></i> Cultos
             </a>

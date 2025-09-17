@@ -228,6 +228,152 @@ $action = $_REQUEST['action'] ?? '';
         exit();
             break;
             
+        case 'obtener_grupos':
+            $stmt = $pdo->query("
+                SELECT gf.*, COUNT(p.ID) as miembros 
+                FROM grupos_familiares gf 
+                LEFT JOIN personas p ON gf.ID = p.GRUPO_FAMILIAR_ID 
+                GROUP BY gf.ID 
+                ORDER BY gf.NOMBRE
+            ");
+            $grupos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'grupos' => $grupos
+            ]);
+            break;
+            
+        case 'crear_grupo':
+            $nombre = $_POST['nombre'] ?? '';
+            $descripcion = $_POST['descripcion'] ?? '';
+            
+            if (empty($nombre)) {
+                throw new Exception('El nombre del grupo es requerido');
+            }
+            
+            $stmt = $pdo->prepare("INSERT INTO grupos_familiares (NOMBRE, DESCRIPCION) VALUES (?, ?)");
+            $stmt->execute([$nombre, $descripcion]);
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Grupo familiar creado exitosamente'
+            ]);
+            break;
+            
+        case 'editar_grupo':
+            $id = $_POST['id'] ?? 0;
+            $nombre = $_POST['nombre'] ?? '';
+            $descripcion = $_POST['descripcion'] ?? '';
+            
+            if (empty($nombre)) {
+                throw new Exception('El nombre del grupo es requerido');
+            }
+            
+            $stmt = $pdo->prepare("UPDATE grupos_familiares SET NOMBRE = ?, DESCRIPCION = ? WHERE ID = ?");
+            $stmt->execute([$nombre, $descripcion, $id]);
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Grupo familiar actualizado exitosamente'
+            ]);
+            break;
+            
+        case 'eliminar_grupo':
+            $id = $_POST['id'] ?? 0;
+            
+            // Verificar si hay personas asignadas a este grupo
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM personas WHERE GRUPO_FAMILIAR_ID = ?");
+            $stmt->execute([$id]);
+            $count = $stmt->fetchColumn();
+            
+            if ($count > 0) {
+                throw new Exception('No se puede eliminar el grupo porque tiene personas asignadas');
+            }
+            
+            $stmt = $pdo->prepare("DELETE FROM grupos_familiares WHERE ID = ?");
+            $stmt->execute([$id]);
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Grupo familiar eliminado exitosamente'
+            ]);
+            break;
+            
+        case 'obtener_roles':
+            $stmt = $pdo->query("SELECT * FROM roles ORDER BY nombre_rol");
+            $roles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'roles' => $roles
+            ]);
+            break;
+            
+        case 'crear_rol':
+            $nombre_rol = $_POST['nombre_rol'] ?? '';
+            $descripcion = $_POST['descripcion'] ?? '';
+            
+            if (empty($nombre_rol)) {
+                throw new Exception('El nombre del rol es requerido');
+            }
+            
+            $stmt = $pdo->prepare("INSERT INTO roles (nombre_rol, descripcion) VALUES (?, ?)");
+            $stmt->execute([$nombre_rol, $descripcion]);
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Rol creado exitosamente'
+            ]);
+            break;
+            
+        case 'editar_rol':
+            $id = $_POST['id'] ?? 0;
+            $nombre_rol = $_POST['nombre_rol'] ?? '';
+            $descripcion = $_POST['descripcion'] ?? '';
+            
+            if (empty($nombre_rol)) {
+                throw new Exception('El nombre del rol es requerido');
+            }
+            
+            $stmt = $pdo->prepare("UPDATE roles SET nombre_rol = ?, descripcion = ? WHERE id = ?");
+            $stmt->execute([$nombre_rol, $descripcion, $id]);
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Rol actualizado exitosamente'
+            ]);
+            break;
+            
+        case 'eliminar_rol':
+            $id = $_POST['id'] ?? 0;
+            
+            // Verificar si hay personas asignadas a este rol
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM personas WHERE ROL = ?");
+            $stmt->execute([$id]);
+            $count = $stmt->fetchColumn();
+            
+            if ($count > 0) {
+                throw new Exception('No se puede eliminar el rol porque tiene personas asignadas');
+            }
+            
+            $stmt = $pdo->prepare("DELETE FROM roles WHERE id = ?");
+            $stmt->execute([$id]);
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Rol eliminado exitosamente'
+            ]);
+            break;
+            
         default:
             throw new Exception('Acción no válida');
 }

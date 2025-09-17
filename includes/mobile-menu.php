@@ -30,18 +30,6 @@
                 <p class="mobile-menu-category-text">Personas</p>
             </a>
             
-            <!-- Grupos Familiares -->
-            <a href="<?php echo getBaseUrl(); ?>/modules/grupos_familiares.php" class="mobile-menu-category grupos" onclick="selectMenuItem()">
-                <i class="fas fa-home mobile-menu-category-icon"></i>
-                <p class="mobile-menu-category-text">Grupos</p>
-            </a>
-            
-            <!-- Roles -->
-            <a href="<?php echo getBaseUrl(); ?>/modules/roles.php" class="mobile-menu-category roles" onclick="selectMenuItem()">
-                <i class="fas fa-user-tag mobile-menu-category-icon"></i>
-                <p class="mobile-menu-category-text">Roles</p>
-            </a>
-            
             <!-- Cultos -->
             <a href="<?php echo getBaseUrl(); ?>/modules/cultos.php" class="mobile-menu-category cultos" onclick="selectMenuItem()">
                 <i class="fas fa-church mobile-menu-category-icon"></i>
