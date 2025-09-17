@@ -21,201 +21,206 @@
             <i class="fas fa-user-tag"></i> Roles
         </button>
     </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="visitas-tab" data-bs-toggle="tab" data-bs-target="#visitas" type="button" role="tab" aria-controls="visitas" aria-selected="false">
+            <i class="fas fa-user-plus"></i> Visitas
+        </button>
+    </li>
 </ul>
 
 <div class="tab-content" id="mainTabsContent">
 			<!-- Pestaña de Personas -->
 			<div class="tab-pane fade show active" id="personas" role="tabpanel" aria-labelledby="personas-tab">
 
-				<?php
-		// Variables para SweetAlert2
-		$successMessage = '';
-		$errorMessage = '';
+<?php
+// Variables para SweetAlert2
+$successMessage = '';
+$errorMessage = '';
 
-		if (isset($_SESSION['success'])) {
-			$successMessage = $_SESSION['success'];
-			unset($_SESSION['success']);
-		}
-		if (isset($_SESSION['error'])) {
-			$errorMessage = $_SESSION['error'];
-			unset($_SESSION['error']);
-		}
+if (isset($_SESSION['success'])) {
+    $successMessage = $_SESSION['success'];
+    unset($_SESSION['success']);
+}
+if (isset($_SESSION['error'])) {
+    $errorMessage = $_SESSION['error'];
+    unset($_SESSION['error']);
+}
 
-		try {
-			$pdo = conectarDB();
-			
-			// Obtener todas las personas para el filtrado en tiempo real
-			$sql = "SELECT p.*, gf.NOMBRE as GRUPO_FAMILIAR_NOMBRE, r.nombre_rol as ROL_NOMBRE 
-					FROM personas p 
-					LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID 
-					LEFT JOIN roles r ON p.ROL = r.id 
-					ORDER BY p.FAMILIA, p.APELLIDO_PATERNO, p.NOMBRES";
-			
-			$stmt = $pdo->prepare($sql);
-			$stmt->execute();
-			$personas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-			
-			// Convertir a JSON para JavaScript
-			$personas_json = json_encode($personas);
-			
-			// Obtener grupos familiares
-			$sql_grupos = "SELECT gf.*, COUNT(p.ID) as miembros 
-						FROM grupos_familiares gf 
-						LEFT JOIN personas p ON gf.ID = p.GRUPO_FAMILIAR_ID 
-						GROUP BY gf.ID 
-						ORDER BY gf.ID";
-			
-			$stmt_grupos = $pdo->prepare($sql_grupos);
-			$stmt_grupos->execute();
-			$grupos = $stmt_grupos->fetchAll(PDO::FETCH_ASSOC);
-			
-			// Debug: verificar datos
-			error_log("Grupos cargados: " . print_r($grupos, true));
-			
-			// Convertir a JSON para JavaScript
-			$grupos_json = json_encode($grupos);
-		} catch (PDOException $e) {
-			echo '<div class="alert alert-danger">Error al cargar las personas: ' . htmlspecialchars($e->getMessage()) . '</div>';
-			$personas = [];
-			$personas_json = '[]';
-			$grupos = [];
-			$grupos_json = '[]';
-		}
-	?>
+try {
+    $pdo = conectarDB();
+    
+    // Obtener todas las personas para el filtrado en tiempo real
+    $sql = "SELECT p.*, gf.NOMBRE as GRUPO_FAMILIAR_NOMBRE, r.nombre_rol as ROL_NOMBRE 
+            FROM personas p 
+            LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID 
+            LEFT JOIN roles r ON p.ROL = r.id 
+            ORDER BY p.FAMILIA, p.APELLIDO_PATERNO, p.NOMBRES";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    $personas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Convertir a JSON para JavaScript
+    $personas_json = json_encode($personas);
+    
+    // Obtener grupos familiares
+    $sql_grupos = "SELECT gf.*, COUNT(p.ID) as miembros 
+                   FROM grupos_familiares gf 
+                   LEFT JOIN personas p ON gf.ID = p.GRUPO_FAMILIAR_ID 
+                   GROUP BY gf.ID 
+                   ORDER BY gf.ID";
+    
+    $stmt_grupos = $pdo->prepare($sql_grupos);
+    $stmt_grupos->execute();
+    $grupos = $stmt_grupos->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Debug: verificar datos
+    error_log("Grupos cargados: " . print_r($grupos, true));
+    
+    // Convertir a JSON para JavaScript
+    $grupos_json = json_encode($grupos);
+} catch (PDOException $e) {
+    echo '<div class="alert alert-danger">Error al cargar las personas: ' . htmlspecialchars($e->getMessage()) . '</div>';
+    $personas = [];
+    $personas_json = '[]';
+    $grupos = [];
+    $grupos_json = '[]';
+}
+?>
 
 				<!-- Gestión de Personas -->
-				<div class="card shadow mb-4">
-					<div class="card-header py-3 d-flex justify-content-between align-items-center">
-						<h6 class="m-0 font-weight-bold text-primary">Listado de Personas</h6>
-						<div class="btn-group">
-							<button class="btn btn-success" onclick="exportarExcel()">
-								<i class="fas fa-file-excel"></i> Exportar Excel
-							</button>
-							<button class="btn btn-info" onclick="exportarFormatoAsistencia()">
-								<i class="fas fa-clipboard-list"></i> Formato Asistencia
-							</button>
-							<button class="btn btn-primary" onclick="nuevoPersona()">
-								<i class="fas fa-plus"></i> Nueva Persona
-							</button>
-						</div>
-					</div>
-					<div class="card-body">
-						<!-- Campo de búsqueda -->
-						<div class="row mb-3">
-							<div class="col-md-6">
-								<div class="input-group">
-									<span class="input-group-text">
-										<i class="fas fa-search"></i>
-									</span>
-									<input type="text" class="form-control" id="searchInput" placeholder="Buscar personas..." oninput="filtrarPersonas()">
-								</div>
-							</div>
-							<div class="col-md-6 text-end">
-								<div class="d-flex align-items-center justify-content-end">
-									<label for="itemsPorPagina" class="me-2">Items:</label>
-									<select class="form-select form-select-sm me-2" id="itemsPorPagina" onchange="cambiarItemsPorPagina()" style="width: auto;">
-										<option value="10">10</option>
-										<option value="25" selected>25</option>
-										<option value="50">50</option>
-										<option value="100">100</option>
-									</select>
-									<span id="infoRegistros" class="text-muted"></span>
-								</div>
-							</div>
-						</div>
-					
-						<!-- Botones de ordenamiento -->
-						<div class="row mb-3">
-							<div class="col-12">
-								<div class="d-flex flex-column flex-md-row justify-content-md-end">
-									<div class="btn-group-vertical btn-group-sm d-md-none mb-2" role="group">
-										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('FAMILIA')">
-											<i class="fas fa-sort"></i> Familia
-										</button>
-										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('GRUPO_FAMILIAR')">
-											<i class="fas fa-sort"></i> Grupo Familiar
-										</button>
-										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('APELLIDO_PATERNO')">
-											<i class="fas fa-sort"></i> Apellido
-										</button>
-										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('NOMBRES')">
-											<i class="fas fa-sort"></i> Nombres
-										</button>
-									</div>
-									<div class="btn-group d-none d-md-flex" role="group">
-										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('FAMILIA')">
-											<i class="fas fa-sort"></i> Familia
-										</button>
-										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('GRUPO_FAMILIAR')">
-											<i class="fas fa-sort"></i> Grupo Familiar
-										</button>
-										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('APELLIDO_PATERNO')">
-											<i class="fas fa-sort"></i> Apellido
-										</button>
-										<button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('NOMBRES')">
-											<i class="fas fa-sort"></i> Nombres
-										</button>
-									</div>
-								</div>
-							</div>
-						</div>
-					
-						<!-- Indicador de estado de búsqueda -->
-						<div id="estadoBusqueda" class="alert alert-info" style="display: none;">
-							<i class="fas fa-search"></i> Búsqueda en tiempo real activa
-						</div>
-					
-						<div class="table-responsive">
-							<table class="table table-bordered" id="tablaPersonas" width="100%" cellspacing="0">
-								<thead>
-									<tr>
-										<th>ID</th>
-										<th>Imagen</th>
-										<th>RUT</th>
-										<th>Nombres</th>
-										<th>Apellido Paterno</th>
-										<th>Apellido Materno</th>
-										<th>Familia</th>
-										<th>Rol</th>
-										<th>Grupo Familiar</th>
-										<th>Acciones</th>
-									</tr>
-								</thead>
-								<tbody>
-									<!-- Se llenará dinámicamente con JavaScript -->
-								</tbody>
-							</table>
-						</div>
-						
-						<!-- Paginación del lado del cliente -->
-						<div class="row mt-3">
-							<div class="col-12">
-									<nav aria-label="Navegación de páginas">
-									<ul class="pagination justify-content-center mb-0" id="paginacion">
-										<!-- Se generará dinámicamente con JavaScript -->
-										</ul>
-									</nav>
-							</div>
-						</div>
-					</div>
-				</div>
+<div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">Listado de Personas</h6>
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="exportarExcel()">
+                        <i class="fas fa-file-excel"></i> Exportar Excel
+                    </button>
+                    <button class="btn btn-info" onclick="exportarFormatoAsistencia()">
+                        <i class="fas fa-clipboard-list"></i> Formato Asistencia
+                    </button>
+                    <button class="btn btn-primary" onclick="nuevoPersona()">
+                        <i class="fas fa-plus"></i> Nueva Persona
+                    </button>
+                </div>
+    </div>
+    <div class="card-body">
+        <!-- Campo de búsqueda -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas..." oninput="filtrarPersonas()">
+                </div>
             </div>
+            <div class="col-md-6 text-end">
+                <div class="d-flex align-items-center justify-content-end">
+                    <label for="itemsPorPagina" class="me-2">Items:</label>
+                    <select class="form-select form-select-sm me-2" id="itemsPorPagina" onchange="cambiarItemsPorPagina()" style="width: auto;">
+                        <option value="10">10</option>
+                        <option value="25" selected>25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <span id="infoRegistros" class="text-muted"></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Botones de ordenamiento -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="d-flex flex-column flex-md-row justify-content-md-end">
+                    <div class="btn-group-vertical btn-group-sm d-md-none mb-2" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('FAMILIA')">
+                            <i class="fas fa-sort"></i> Familia
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('GRUPO_FAMILIAR')">
+                            <i class="fas fa-sort"></i> Grupo Familiar
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('APELLIDO_PATERNO')">
+                            <i class="fas fa-sort"></i> Apellido
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('NOMBRES')">
+                            <i class="fas fa-sort"></i> Nombres
+                        </button>
+                    </div>
+                    <div class="btn-group d-none d-md-flex" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('FAMILIA')">
+                            <i class="fas fa-sort"></i> Familia
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('GRUPO_FAMILIAR')">
+                            <i class="fas fa-sort"></i> Grupo Familiar
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('APELLIDO_PATERNO')">
+                            <i class="fas fa-sort"></i> Apellido
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="cambiarOrden('NOMBRES')">
+                            <i class="fas fa-sort"></i> Nombres
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Indicador de estado de búsqueda -->
+        <div id="estadoBusqueda" class="alert alert-info" style="display: none;">
+            <i class="fas fa-search"></i> Búsqueda en tiempo real activa
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-bordered" id="tablaPersonas" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Imagen</th>
+                        <th>RUT</th>
+                        <th>Nombres</th>
+                        <th>Apellido Paterno</th>
+                        <th>Apellido Materno</th>
+                        <th>Familia</th>
+                        <th>Rol</th>
+                        <th>Grupo Familiar</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Se llenará dinámicamente con JavaScript -->
+                </tbody>
+            </table>
+        </div>
+            
+        <!-- Paginación del lado del cliente -->
+            <div class="row mt-3">
+            <div class="col-12">
+                    <nav aria-label="Navegación de páginas">
+                    <ul class="pagination justify-content-center mb-0" id="paginacion">
+                        <!-- Se generará dinámicamente con JavaScript -->
+                        </ul>
+                    </nav>
+							</div>
+            </div>
+            </div>
+        </div>
+    </div>
 
             <!-- Pestaña de Grupos Familiares -->
             <div class="tab-pane fade" id="grupos" role="tabpanel" aria-labelledby="grupos-tab">
-                <div class="card shadow mb-4">
-                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
                         <h6 class="m-0 font-weight-bold text-primary">Listado de Grupos Familiares</h6>
-                        <div class="btn-group">
+                <div class="btn-group">
                             <button class="btn btn-success" onclick="exportarGruposExcel()">
                                 <i class="fas fa-file-excel"></i> Exportar Excel
                             </button>
                             <button class="btn btn-primary" onclick="abrirModalGrupo()">
                                 <i class="fas fa-plus"></i> Nuevo Grupo
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
+                                        </button>
+                </div>
+            </div>
+            <div class="card-body">
                         <!-- Campo de búsqueda -->
                         <div class="row mb-3">
                             <div class="col-md-6">
@@ -245,21 +250,21 @@
                             <i class="fas fa-search"></i> Búsqueda en tiempo real activa
                         </div>
                         
-                        <div class="table-responsive">
+                <div class="table-responsive">
                             <table class="table table-bordered" id="tablaGrupos" width="100%" cellspacing="0">
                                 <thead>
-                                    <tr>
-                                        <th>ID</th>
+                            <tr>
+                                <th>ID</th>
                                         <th>Nombre</th>
                                         <th>Miembros</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
                                 <tbody id="tbodyGrupos">
                                     <!-- Se llenará dinámicamente con JavaScript -->
-                                </tbody>
-                            </table>
-                        </div>
+                        </tbody>
+                    </table>
+                </div>
                         
                         <!-- Paginación del lado del cliente -->
                         <div class="row mt-3">
@@ -271,25 +276,25 @@
                                 </nav>
                             </div>
                         </div>
-                    </div>
-                </div>
             </div>
-            
+        </div>
+    </div>
+
             <!-- Pestaña de Roles -->
             <div class="tab-pane fade" id="roles" role="tabpanel" aria-labelledby="roles-tab">
-                <div class="card shadow mb-4">
-                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
                         <h6 class="m-0 font-weight-bold text-primary">Listado de Roles</h6>
-                        <div class="btn-group">
+                <div class="btn-group">
                             <button class="btn btn-success" onclick="exportarRolesExcel()">
                                 <i class="fas fa-file-excel"></i> Exportar Excel
-                            </button>
+                    </button>
                             <button class="btn btn-primary" onclick="abrirModalRol()">
                                 <i class="fas fa-plus"></i> Nuevo Rol
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
                         <!-- Campo de búsqueda -->
                         <div class="row mb-3">
                             <div class="col-md-6">
@@ -319,21 +324,21 @@
                             <i class="fas fa-search"></i> Búsqueda en tiempo real activa
                         </div>
                         
-                        <div class="table-responsive">
+                <div class="table-responsive">
                             <table class="table table-bordered" id="tablaRoles" width="100%" cellspacing="0">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
                                         <th>Nombre del Rol</th>
-                                        <th>Descripción</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
+                                <th>Descripción</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
                                 <tbody id="tbodyRoles">
                                     <!-- Se llenará dinámicamente con JavaScript -->
-                                </tbody>
-                            </table>
-                        </div>
+                        </tbody>
+                    </table>
+                </div>
                         
                         <!-- Paginación del lado del cliente -->
                         <div class="row mt-3">
@@ -345,9 +350,85 @@
                                 </nav>
                             </div>
                         </div>
-                    </div>
+            </div>
+        </div>
+    </div>
+            
+            <!-- Pestaña de Visitas -->
+            <div class="tab-pane fade" id="visitas" role="tabpanel" aria-labelledby="visitas-tab">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-primary">Listado de Visitas</h6>
+                <div class="btn-group">
+                            <button class="btn btn-success" onclick="exportarVisitasExcel()">
+                                <i class="fas fa-file-excel"></i> Exportar Excel
+                            </button>
+                            <button class="btn btn-primary" onclick="nuevaVisita()">
+                                <i class="fas fa-plus"></i> Nueva Visita
+                    </button>
                 </div>
             </div>
+            <div class="card-body">
+                        <!-- Campo de búsqueda -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="searchInputVisitas" placeholder="Buscar visitas..." oninput="filtrarVisitas()">
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <div class="d-flex align-items-center justify-content-end">
+                                    <label for="itemsPorPaginaVisitas" class="me-2">Items:</label>
+                                    <select class="form-select form-select-sm me-2" id="itemsPorPaginaVisitas" onchange="cambiarItemsPorPaginaVisitas()" style="width: auto;">
+                                        <option value="10">10</option>
+                                        <option value="25" selected>25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                    <span id="infoRegistrosVisitas" class="text-muted"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Indicador de estado de búsqueda -->
+                        <div id="estadoBusquedaVisitas" class="alert alert-info" style="display: none;">
+                            <i class="fas fa-search"></i> Búsqueda en tiempo real activa
+                        </div>
+                        
+                <div class="table-responsive">
+                            <table class="table table-bordered" id="tablaVisitas" width="100%" cellspacing="0">
+                                <thead>
+                            <tr>
+                                <th>ID</th>
+                                        <th>Nombres</th>
+                                        <th>Apellidos</th>
+                                        <th>Observaciones</th>
+                                        <th>Fecha Culto</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                                <tbody id="tbodyVisitas">
+                                    <!-- Se llenará dinámicamente con JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                        
+                        <!-- Paginación del lado del cliente -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <nav aria-label="Navegación de páginas">
+                                    <ul class="pagination justify-content-center mb-0" id="paginacionVisitas">
+                                        <!-- Se generará dinámicamente con JavaScript -->
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 
@@ -561,6 +642,188 @@
     </div>
 </div>
 
+<!-- Modal para Ver Datos de Visita -->
+<div class="modal fade" id="modalVerVisita" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Datos de la Visita</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="contenidoVisita">
+                <!-- Se llenará dinámicamente con JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Fusionar Visita con Persona -->
+<div class="modal fade" id="modalFusionarVisita" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Fusionar Visita con Persona</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formFusionarVisita">
+                <div class="modal-body">
+                    <input type="hidden" id="visitaIdFusionar" name="visita_id">
+                    <input type="hidden" id="personaIdFusionar" name="persona_id">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Datos de la Visita:</h6>
+                            <div id="datosVisitaFusionar">
+                                <!-- Se llenará dinámicamente -->
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Seleccionar Persona:</h6>
+                            <div class="mb-3">
+                                <label for="buscarPersonaFusionar" class="form-label">Buscar Persona:</label>
+                                <input type="text" class="form-control" id="buscarPersonaFusionar" placeholder="Buscar por nombre, apellido o RUT..." oninput="buscarPersonasParaFusionar()">
+                            </div>
+                            <div id="resultadosPersonasFusionar" class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                                <!-- Se llenará dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnFusionarVisita" onclick="procesarFusionVisita()" disabled>Fusionar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Agregar Visita a Personas -->
+<div class="modal fade" id="modalAgregarVisitaPersona" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Agregar Visita a Personas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formAgregarVisitaPersona">
+                <div class="modal-body">
+                    <input type="hidden" id="visitaIdAgregar" name="visita_id">
+                    <input type="hidden" id="cultoIdAgregar" name="culto_id">
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6 class="text-primary mb-3">Datos de la Visita:</h6>
+                            <div id="datosVisitaAgregar" class="border rounded p-3 bg-light">
+                                <!-- Se llenará dinámicamente -->
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <h6 class="text-primary mb-3">Datos de la Nueva Persona:</h6>
+                            
+                            <!-- Información Personal -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="rutAgregar" class="form-label">RUT</label>
+                                    <input type="text" class="form-control" id="rutAgregar" name="rut" placeholder="12345678-9">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="nombresAgregar" class="form-label">Nombres *</label>
+                                    <input type="text" class="form-control" id="nombresAgregar" name="nombres" required>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="apellidoPaternoAgregar" class="form-label">Apellido Paterno *</label>
+                                    <input type="text" class="form-control" id="apellidoPaternoAgregar" name="apellido_paterno" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="apellidoMaternoAgregar" class="form-label">Apellido Materno</label>
+                                    <input type="text" class="form-control" id="apellidoMaternoAgregar" name="apellido_materno">
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="sexoAgregar" class="form-label">Sexo</label>
+                                    <select class="form-select" id="sexoAgregar" name="sexo">
+                                        <option value="">Seleccionar</option>
+                                        <option value="Masculino">Masculino</option>
+                                        <option value="Femenino">Femenino</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="fechaNacimientoAgregar" class="form-label">Fecha de Nacimiento</label>
+                                    <input type="date" class="form-control" id="fechaNacimientoAgregar" name="fecha_nacimiento">
+                                </div>
+                            </div>
+                            
+                            <!-- Información de Contacto -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="telefonoAgregar" class="form-label">Teléfono</label>
+                                    <input type="tel" class="form-control" id="telefonoAgregar" name="telefono" placeholder="+56 9 1234 5678">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="emailAgregar" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="emailAgregar" name="email" placeholder="ejemplo@correo.com">
+                                </div>
+                            </div>
+                            
+                            <!-- Información Organizacional -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="familiaAgregar" class="form-label">Familia</label>
+                                    <input type="text" class="form-control" id="familiaAgregar" name="familia" placeholder="Nombre de la familia">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="rolAgregar" class="form-label">Rol</label>
+                                    <select class="form-select" id="rolAgregar" name="rol">
+                                        <option value="">Seleccionar rol</option>
+                                        <!-- Se llenará dinámicamente -->
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="grupoFamiliarAgregar" class="form-label">Grupo Familiar</label>
+                                    <select class="form-select" id="grupoFamiliarAgregar" name="grupo_familiar">
+                                        <option value="">Seleccionar grupo familiar</option>
+                                        <!-- Se llenará dinámicamente -->
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="primeraVezAgregar" class="form-label">Primera Vez</label>
+                                    <select class="form-select" id="primeraVezAgregar" name="primera_vez">
+                                        <option value="1">Sí</option>
+                                        <option value="0">No</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Observaciones -->
+                            <div class="mb-3">
+                                <label for="observacionesAgregar" class="form-label">Observaciones</label>
+                                <textarea class="form-control" id="observacionesAgregar" name="observaciones" rows="3" placeholder="Observaciones adicionales..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Crear Persona y Asociar al Culto
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 // Variables globales para el sistema de búsqueda y paginación
 let datosPersonas = [];
@@ -569,6 +832,12 @@ let paginaActual = 1;
 let itemsPorPagina = 25;
 let ordenActual = 'ORIGINAL';
 let direccionOrden = 'asc';
+
+// Variables globales para visitas
+let datosVisitas = [];
+let datosFiltradosVisitas = [];
+let paginaActualVisitas = 1;
+let itemsPorPaginaVisitas = 25;
 
 // Variables eliminadas - ya no se usan
 
@@ -1936,12 +2205,655 @@ function cambiarItemsPorPaginaRoles() {
     console.log('Cambiando items por página para roles');
 }
 
+// Funciones para Visitas
+function cargarVisitas() {
+    console.log('🔄 Iniciando carga de visitas...');
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=obtener_visitas'
+    })
+    .then(response => {
+        console.log('📡 Respuesta recibida:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('📊 Datos recibidos:', data);
+        if (data.success) {
+            datosVisitas = data.visitas;
+            datosFiltradosVisitas = [...datosVisitas];
+            console.log('✅ Visitas cargadas:', datosVisitas.length);
+            mostrarVisitas(datosFiltradosVisitas);
+            actualizarInfoPaginacionVisitas();
+        } else {
+            console.error('❌ Error al cargar visitas:', data.message);
+            Swal.fire('Error', 'Error al cargar las visitas: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error en la petición:', error);
+        Swal.fire('Error', 'Error al cargar las visitas', 'error');
+    });
+}
+
+function mostrarVisitas(visitas) {
+    console.log('🎯 Mostrando visitas:', visitas);
+    const tbody = document.getElementById('tbodyVisitas');
+    
+    if (!tbody) {
+        console.error('❌ No se encontró el tbody para visitas');
+        return;
+    }
+    
+    tbody.innerHTML = '';
+    
+    if (!visitas || visitas.length === 0) {
+        console.log('⚠️ No hay visitas para mostrar');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay visitas registradas</td></tr>';
+        return;
+    }
+    
+    console.log(`📋 Mostrando ${visitas.length} visitas`);
+    visitas.forEach((visita, index) => {
+        console.log(`📝 Visita ${index + 1}:`, visita);
+        const row = document.createElement('tr');
+        const esPrimeraVez = visita.PRIMERA_VEZ == 1 ? '<span class="badge bg-success">Primera vez</span>' : '<span class="badge bg-info">Visitante</span>';
+        
+        row.innerHTML = `
+            <td>${visita.id}</td>
+            <td>${visita.NOMBRES || ''}</td>
+            <td>${visita.APELLIDOS || ''}</td>
+            <td>${visita.OBSERVACIONES || ''}</td>
+            <td>
+                ${visita.fecha_culto || 'Sin culto asignado'}<br>
+                <small class="text-muted">${visita.tipo_culto || 'N/A'}</small><br>
+                ${esPrimeraVez}
+            </td>
+            <td>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-sm btn-info" onclick="verVisita(${visita.id})" title="Ver datos">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="fusionarVisita(${visita.id})" title="Fusionar con persona">
+                        <i class="fas fa-link"></i>
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="agregarVisitaPersona(${visita.id})" title="Agregar a personas">
+                        <i class="fas fa-user-plus"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function verVisita(visitaId) {
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=obtener_visita&visita_id=${visitaId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const visita = data.visita;
+            const esPrimeraVez = visita.PRIMERA_VEZ == 1 ? 'Sí' : 'No';
+            const contenido = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Información Personal:</h6>
+                        <p><strong>Nombres:</strong> ${visita.NOMBRES || 'No especificado'}</p>
+                        <p><strong>Apellidos:</strong> ${visita.APELLIDOS || 'No especificado'}</p>
+                        <p><strong>RUT:</strong> ${visita.RUT || 'No especificado'}</p>
+                        <p><strong>Teléfono:</strong> ${visita.TELEFONO || 'No especificado'}</p>
+                        <p><strong>Email:</strong> ${visita.EMAIL || 'No especificado'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Información de la Visita:</h6>
+                        <p><strong>Fecha del Culto:</strong> ${visita.fecha_culto || 'Sin culto asignado'}</p>
+                        <p><strong>Tipo de Culto:</strong> ${visita.tipo_culto || 'No especificado'}</p>
+                        <p><strong>Primera Vez:</strong> ${esPrimeraVez}</p>
+                        <p><strong>Observaciones:</strong> ${visita.OBSERVACIONES || 'Sin observaciones'}</p>
+                        <p><strong>Usuario ID:</strong> ${visita.USUARIO_ID || 'No especificado'}</p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('contenidoVisita').innerHTML = contenido;
+            const modal = new bootstrap.Modal(document.getElementById('modalVerVisita'));
+            modal.show();
+        } else {
+            Swal.fire('Error', 'Error al cargar los datos de la visita: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error en la petición:', error);
+        Swal.fire('Error', 'Error al cargar los datos de la visita', 'error');
+    });
+}
+
+function fusionarVisita(visitaId) {
+    // Cargar datos de la visita
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=obtener_visita&visita_id=${visitaId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const visita = data.visita;
+            document.getElementById('visitaIdFusionar').value = visitaId;
+            
+            // Mostrar datos de la visita
+            const esPrimeraVez = visita.PRIMERA_VEZ == 1 ? 'Sí' : 'No';
+            const datosVisita = `
+                <p><strong>Nombres:</strong> ${visita.NOMBRES || 'No especificado'}</p>
+                <p><strong>Apellidos:</strong> ${visita.APELLIDOS || 'No especificado'}</p>
+                <p><strong>Fecha Culto:</strong> ${visita.fecha_culto || 'Sin culto asignado'}</p>
+                <p><strong>Tipo Culto:</strong> ${visita.tipo_culto || 'N/A'}</p>
+                <p><strong>Primera Vez:</strong> ${esPrimeraVez}</p>
+                <p><strong>Observaciones:</strong> ${visita.OBSERVACIONES || 'Sin observaciones'}</p>
+            `;
+            document.getElementById('datosVisitaFusionar').innerHTML = datosVisita;
+            
+            // Limpiar resultados de búsqueda
+            document.getElementById('resultadosPersonasFusionar').innerHTML = '';
+            document.getElementById('buscarPersonaFusionar').value = '';
+            
+            const modal = new bootstrap.Modal(document.getElementById('modalFusionarVisita'));
+            modal.show();
+        } else {
+            Swal.fire('Error', 'Error al cargar los datos de la visita: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error en la petición:', error);
+        Swal.fire('Error', 'Error al cargar los datos de la visita', 'error');
+    });
+}
+
+function agregarVisitaPersona(visitaId) {
+    // Cargar datos de la visita
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=obtener_visita&visita_id=${visitaId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const visita = data.visita;
+            document.getElementById('visitaIdAgregar').value = visitaId;
+            
+            // Obtener el culto_id de la visita
+            fetch('personas_actions.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `action=obtener_culto_visita&visita_id=${visitaId}`
+            })
+            .then(response => response.json())
+            .then(cultoData => {
+                if (cultoData.success) {
+                    document.getElementById('cultoIdAgregar').value = cultoData.culto_id;
+                }
+            })
+            .catch(error => {
+                console.error('Error al obtener culto:', error);
+            });
+            
+            // Mostrar datos de la visita
+            const esPrimeraVez = visita.PRIMERA_VEZ == 1 ? 'Sí' : 'No';
+            const datosVisita = `
+                <p><strong>Nombres:</strong> ${visita.NOMBRES || 'No especificado'}</p>
+                <p><strong>Apellidos:</strong> ${visita.APELLIDOS || 'No especificado'}</p>
+                <p><strong>Fecha Culto:</strong> ${visita.fecha_culto || 'Sin culto asignado'}</p>
+                <p><strong>Tipo Culto:</strong> ${visita.tipo_culto || 'N/A'}</p>
+                <p><strong>Primera Vez:</strong> ${esPrimeraVez}</p>
+                <p><strong>Observaciones:</strong> ${visita.OBSERVACIONES || 'Sin observaciones'}</p>
+            `;
+            document.getElementById('datosVisitaAgregar').innerHTML = datosVisita;
+            
+            // Llenar automáticamente algunos campos del formulario
+            document.getElementById('nombresAgregar').value = visita.NOMBRES || '';
+            document.getElementById('apellidoPaternoAgregar').value = visita.APELLIDOS || '';
+            document.getElementById('primeraVezAgregar').value = visita.PRIMERA_VEZ || '1';
+            document.getElementById('observacionesAgregar').value = visita.OBSERVACIONES || '';
+            
+            // Cargar opciones de roles y grupos familiares
+            cargarOpcionesFormularioAgregar();
+            
+            const modal = new bootstrap.Modal(document.getElementById('modalAgregarVisitaPersona'));
+            modal.show();
+        } else {
+            Swal.fire('Error', 'Error al cargar los datos de la visita: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error en la petición:', error);
+        Swal.fire('Error', 'Error al cargar los datos de la visita', 'error');
+    });
+}
+
+function filtrarVisitas() {
+    const busqueda = document.getElementById('searchInputVisitas').value.toLowerCase();
+    const estadoBusqueda = document.getElementById('estadoBusquedaVisitas');
+    
+    if (busqueda.trim() === '') {
+        datosFiltradosVisitas = [...datosVisitas];
+        estadoBusqueda.style.display = 'none';
+    } else {
+        datosFiltradosVisitas = datosVisitas.filter(visita => {
+            const nombres = (visita.nombres || '').toLowerCase();
+            const apellidos = (visita.apellidos || '').toLowerCase();
+            const observaciones = (visita.observaciones || '').toLowerCase();
+            const fechaCulto = (visita.fecha_culto || '').toLowerCase();
+            
+            return nombres.includes(busqueda) || 
+                   apellidos.includes(busqueda) || 
+                   observaciones.includes(busqueda) || 
+                   fechaCulto.includes(busqueda);
+        });
+        estadoBusqueda.style.display = 'block';
+    }
+    
+    paginaActualVisitas = 1;
+    mostrarVisitas(datosFiltradosVisitas);
+    actualizarInfoPaginacionVisitas();
+}
+
+function cambiarItemsPorPaginaVisitas() {
+    itemsPorPaginaVisitas = parseInt(document.getElementById('itemsPorPaginaVisitas').value);
+    paginaActualVisitas = 1;
+    mostrarVisitas(datosFiltradosVisitas);
+    actualizarInfoPaginacionVisitas();
+}
+
+function actualizarInfoPaginacionVisitas() {
+    const totalRegistros = datosFiltradosVisitas.length;
+    const inicio = (paginaActualVisitas - 1) * itemsPorPaginaVisitas + 1;
+    const fin = Math.min(paginaActualVisitas * itemsPorPaginaVisitas, totalRegistros);
+    
+    document.getElementById('infoRegistrosVisitas').textContent = 
+        `Mostrando ${inicio} a ${fin} de ${totalRegistros} registros`;
+}
+
+function exportarVisitasExcel() {
+    // Implementar exportación de visitas a Excel
+    console.log('Exportando visitas a Excel...');
+    // TODO: Implementar funcionalidad de exportación
+}
+
+function nuevaVisita() {
+    // Redirigir al módulo de asistencias para agregar nueva visita
+    window.location.href = 'asistencias.php';
+}
+
+// Función para cargar opciones de roles y grupos familiares en el formulario de agregar
+function cargarOpcionesFormularioAgregar() {
+    // Cargar roles
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=obtener_roles'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const selectRol = document.getElementById('rolAgregar');
+            selectRol.innerHTML = '<option value="">Seleccionar rol</option>';
+            data.roles.forEach(rol => {
+                selectRol.innerHTML += `<option value="${rol.id}">${rol.nombre_rol}</option>`;
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error al cargar roles:', error);
+    });
+    
+    // Cargar grupos familiares
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=obtener_grupos'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const selectGrupo = document.getElementById('grupoFamiliarAgregar');
+            selectGrupo.innerHTML = '<option value="">Seleccionar grupo familiar</option>';
+            data.grupos.forEach(grupo => {
+                selectGrupo.innerHTML += `<option value="${grupo.ID}">${grupo.NOMBRE}</option>`;
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error al cargar grupos:', error);
+    });
+}
+
+// Función para procesar el formulario de agregar visita a personas
+function procesarAgregarVisitaPersona(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(document.getElementById('formAgregarVisitaPersona'));
+    const visitaId = formData.get('visita_id');
+    const cultoId = formData.get('culto_id');
+    
+    // Validar campos requeridos
+    const nombres = formData.get('nombres');
+    const apellidoPaterno = formData.get('apellido_paterno');
+    
+    if (!nombres || !apellidoPaterno) {
+        Swal.fire('Error', 'Debe completar los campos obligatorios: Nombres y Apellido Paterno', 'error');
+        return;
+    }
+    
+    if (!visitaId || !cultoId) {
+        Swal.fire('Error', 'Error: No se encontró información de la visita o culto', 'error');
+        return;
+    }
+    
+    Swal.fire({
+        title: '¿Confirmar creación?',
+        text: 'Se creará una nueva persona y se asociará al culto correspondiente',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, crear persona',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Mostrar indicador de carga
+            Swal.fire({
+                title: 'Procesando...',
+                text: 'Creando persona y asociando al culto',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Agregar action al FormData
+            formData.append('action', 'crear_persona_desde_visita');
+            
+            fetch('personas_actions.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return response.text().then(text => {
+                    console.log('Response text:', text);
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error('Error parsing JSON:', e);
+                        throw new Error('Respuesta no válida del servidor');
+                    }
+                });
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.success) {
+                    Swal.fire('Éxito', data.message, 'success');
+                    // Cerrar modal y recargar visitas
+                    bootstrap.Modal.getInstance(document.getElementById('modalAgregarVisitaPersona')).hide();
+                    cargarVisitas();
+                } else {
+                    Swal.fire('Error', data.message || 'Error desconocido', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error en la creación:', error);
+                Swal.fire('Error', `Error al crear la persona: ${error.message}`, 'error');
+            });
+        }
+    });
+}
+
+// Función para buscar personas para fusionar con visita
+function buscarPersonasParaFusionar() {
+    const busqueda = document.getElementById('buscarPersonaFusionar').value.trim();
+    const resultadosDiv = document.getElementById('resultadosPersonasFusionar');
+    
+    if (busqueda.length < 2) {
+        resultadosDiv.innerHTML = '<p class="text-muted">Escribe al menos 2 caracteres para buscar</p>';
+        return;
+    }
+    
+    // Mostrar indicador de carga
+    resultadosDiv.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Buscando...</div>';
+    
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=buscar_personas&busqueda=${encodeURIComponent(busqueda)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarResultadosPersonasFusionar(data.personas);
+        } else {
+            resultadosDiv.innerHTML = `<p class="text-danger">Error: ${data.message}</p>`;
+        }
+    })
+    .catch(error => {
+        console.error('Error en la búsqueda:', error);
+        resultadosDiv.innerHTML = '<p class="text-danger">Error al buscar personas</p>';
+    });
+}
+
+// Función para mostrar resultados de búsqueda de personas
+function mostrarResultadosPersonasFusionar(personas) {
+    const resultadosDiv = document.getElementById('resultadosPersonasFusionar');
+    
+    if (personas.length === 0) {
+        resultadosDiv.innerHTML = '<p class="text-muted">No se encontraron personas</p>';
+        return;
+    }
+    
+    let html = '';
+    personas.forEach(persona => {
+        const nombreCompleto = `${persona.NOMBRES || ''} ${persona.APELLIDO_PATERNO || ''} ${persona.APELLIDO_MATERNO || ''}`.trim();
+        const grupoFamiliar = persona.FAMILIA || 'Sin familia';
+        
+        html += `
+            <div class="border-bottom p-2 cursor-pointer" onclick="seleccionarPersonaParaFusionar(${persona.ID}, '${nombreCompleto.replace(/'/g, "\\'")}')">
+                <div class="fw-bold">${nombreCompleto}</div>
+                <small class="text-muted">RUT: ${persona.RUT || 'No especificado'} | Grupo: ${grupoFamiliar}</small>
+            </div>
+        `;
+    });
+    
+    resultadosDiv.innerHTML = html;
+}
+
+// Función para seleccionar una persona para fusionar
+function seleccionarPersonaParaFusionar(personaId, nombreCompleto) {
+    const visitaId = document.getElementById('visitaIdFusionar').value;
+    
+    if (!visitaId) {
+        Swal.fire('Error', 'No se ha cargado la información de la visita', 'error');
+        return;
+    }
+    
+    // Mostrar indicador de validación
+    const resultadosDiv = document.getElementById('resultadosPersonasFusionar');
+    resultadosDiv.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <p class="mt-2">Validando asistencia...</p>
+        </div>
+    `;
+    
+    // Validar si la persona ya está registrada como asistente al culto
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=validar_asistencia_persona&visita_id=${visitaId}&persona_id=${personaId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.conflicto_asistencia) {
+                // Hay conflicto - la persona ya está registrada como asistente
+                resultadosDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> <strong>Conflicto de Asistencia:</strong><br>
+                        <strong>${nombreCompleto}</strong> ya está registrada como asistente al culto del <strong>${data.fecha_culto}</strong>.<br>
+                        <small class="text-muted">No se puede fusionar con una persona que ya asistió al mismo culto.</small>
+                    </div>
+                `;
+                document.getElementById('btnFusionarVisita').disabled = true;
+            } else {
+                // No hay conflicto - proceder con la selección
+                document.getElementById('personaIdFusionar').value = personaId;
+                resultadosDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check"></i> <strong>Persona seleccionada:</strong><br>
+                        ${nombreCompleto}<br>
+                        <small class="text-muted">✓ Validación de asistencia exitosa</small>
+                    </div>
+                `;
+                document.getElementById('btnFusionarVisita').disabled = false;
+            }
+        } else {
+            resultadosDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-times"></i> <strong>Error de validación:</strong><br>
+                    ${data.message}
+                </div>
+            `;
+            document.getElementById('btnFusionarVisita').disabled = true;
+        }
+    })
+    .catch(error => {
+        console.error('Error en la validación:', error);
+        resultadosDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-times"></i> <strong>Error:</strong><br>
+                No se pudo validar la asistencia de la persona.
+            </div>
+        `;
+        document.getElementById('btnFusionarVisita').disabled = true;
+    });
+}
+
+// Función para procesar la fusión de visita con persona
+function procesarFusionVisita() {
+    const visitaId = document.getElementById('visitaIdFusionar').value;
+    const personaId = document.getElementById('personaIdFusionar').value;
+    
+    if (!visitaId || !personaId) {
+        Swal.fire('Error', 'Debe seleccionar una persona para fusionar', 'error');
+        return;
+    }
+    
+    // Verificar que el botón esté habilitado (validación previa exitosa)
+    const btnFusionar = document.getElementById('btnFusionarVisita');
+    if (btnFusionar.disabled) {
+        Swal.fire('Error', 'La persona seleccionada no ha pasado la validación de asistencia', 'error');
+        return;
+    }
+    
+    Swal.fire({
+        title: '¿Confirmar fusión?',
+        text: 'Esta acción fusionará los datos de la visita con la persona seleccionada',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, fusionar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Mostrar indicador de carga
+            Swal.fire({
+                title: 'Procesando...',
+                text: 'Fusionando visita con persona',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            fetch('personas_actions.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `action=fusionar_visita_persona&visita_id=${visitaId}&persona_id=${personaId}`
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return response.text().then(text => {
+                    console.log('Response text:', text);
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error('Error parsing JSON:', e);
+                        throw new Error('Respuesta no válida del servidor');
+                    }
+                });
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.success) {
+                    Swal.fire('Éxito', data.message, 'success');
+                    // Cerrar modal y recargar visitas
+                    bootstrap.Modal.getInstance(document.getElementById('modalFusionarVisita')).hide();
+                    cargarVisitas();
+                } else {
+                    Swal.fire('Error', data.message || 'Error desconocido', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error en la fusión:', error);
+                Swal.fire('Error', `Error al procesar la fusión: ${error.message}`, 'error');
+            });
+        }
+    });
+}
+
 // Función para cargar datos cuando se activa una pestaña
 function cargarDatosPestana(pestana) {
     if (pestana === 'grupos') {
         cargarGrupos();
     } else if (pestana === 'roles') {
         cargarRoles();
+    } else if (pestana === 'visitas') {
+        cargarVisitas();
     }
 }
 
@@ -1957,9 +2869,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 cargarGrupos();
             } else if (target === '#roles') {
                 cargarRoles();
+            } else if (target === '#visitas') {
+                cargarVisitas();
             }
         });
     });
+    
+    // Event listener para el formulario de agregar visita a personas
+    document.getElementById('formAgregarVisitaPersona').addEventListener('submit', procesarAgregarVisitaPersona);
 });
 </script>
 
@@ -1981,6 +2898,105 @@ document.addEventListener('DOMContentLoaded', function() {
 #roles {
     padding-top: 0 !important;
     margin-top: 0 !important;
+}
+
+/* Corregir z-index de modales para que aparezcan por encima de las pestañas */
+.modal {
+    z-index: 1055 !important;
+}
+
+.modal-backdrop {
+    z-index: 1050 !important;
+}
+
+/* Asegurar que las pestañas no interfieran con los modales */
+.nav-tabs {
+    z-index: 1 !important;
+    position: relative;
+}
+
+/* Asegurar que el contenido de las pestañas tenga z-index correcto */
+.tab-content {
+    z-index: 1 !important;
+    position: relative;
+}
+
+/* Estilos específicos para modales de visitas */
+#modalVerVisita,
+#modalFusionarVisita,
+#modalAgregarVisitaPersona {
+    z-index: 1060 !important;
+}
+
+#modalVerVisita .modal-dialog,
+#modalFusionarVisita .modal-dialog,
+#modalAgregarVisitaPersona .modal-dialog {
+    z-index: 1061 !important;
+}
+
+/* Asegurar que el backdrop de los modales de visitas tenga z-index correcto */
+#modalVerVisita + .modal-backdrop,
+#modalFusionarVisita + .modal-backdrop,
+#modalAgregarVisitaPersona + .modal-backdrop {
+    z-index: 1055 !important;
+}
+
+/* Estilos adicionales para todos los modales del sistema */
+.modal.show {
+    z-index: 1060 !important;
+}
+
+.modal.show .modal-dialog {
+    z-index: 1061 !important;
+}
+
+/* Asegurar que las pestañas activas no interfieran */
+.nav-tabs .nav-link.active {
+    z-index: 1 !important;
+    position: relative;
+}
+
+/* Estilos para resultados de búsqueda de personas */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.cursor-pointer:hover {
+    background-color: #f8f9fa;
+}
+
+#resultadosPersonasFusionar {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    background-color: #fff;
+}
+
+#resultadosPersonasFusionar .border-bottom:last-child {
+    border-bottom: none !important;
+}
+
+/* Estilos para mensajes de validación en fusión */
+#resultadosPersonasFusionar .alert {
+    margin-bottom: 0;
+    border-radius: 0.375rem;
+}
+
+#resultadosPersonasFusionar .alert-warning {
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+    color: #856404;
+}
+
+#resultadosPersonasFusionar .alert-success {
+    background-color: #d1edff;
+    border-color: #b3d7ff;
+    color: #0c5460;
+}
+
+#resultadosPersonasFusionar .alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
 }
 
 .dropdown-item {
