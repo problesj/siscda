@@ -1,14 +1,18 @@
 <?php
 session_start();
 require_once __DIR__ . '/../includes/auth_functions.php';
-require_once __DIR__ . '/../vendor/autoload.php';
 
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Style\Font;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
+// Verificar si PhpSpreadsheet está disponible
+$phpspreadsheet_available = false;
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    try {
+        require_once __DIR__ . '/../vendor/autoload.php';
+        $phpspreadsheet_available = true;
+    } catch (Exception $e) {
+        error_log("Error cargando PhpSpreadsheet: " . $e->getMessage());
+        $phpspreadsheet_available = false;
+    }
+}
 
 // Verificar que el usuario esté autenticado
 if (!isset($_SESSION['usuario_id'])) {
@@ -37,6 +41,23 @@ try {
     $stmt->execute();
     $personas = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    if ($phpspreadsheet_available) {
+        // Usar PhpSpreadsheet para generar Excel
+        generarExcelConPhpSpreadsheet($personas);
+    } else {
+        // Usar CSV como alternativa
+        generarCSV($personas);
+    }
+    
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Error al exportar: ' . $e->getMessage()]);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Error al generar archivo: ' . $e->getMessage()]);
+}
+
+function generarExcelConPhpSpreadsheet($personas) {
     // Crear una nueva instancia de Spreadsheet
     $spreadsheet = new Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
@@ -167,12 +188,62 @@ try {
     // Limpiar memoria
     $spreadsheet->disconnectWorksheets();
     unset($spreadsheet);
+}
+
+function generarCSV($personas) {
+    // Configurar headers para descarga CSV
+    $filename = 'personas_' . date('Y-m-d_H-i-s') . '.csv';
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: max-age=0');
+    header('Pragma: public');
     
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Error al exportar: ' . $e->getMessage()]);
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Error al generar Excel: ' . $e->getMessage()]);
+    // Crear el archivo CSV
+    $output = fopen('php://output', 'w');
+    
+    // Agregar BOM para UTF-8 (para que Excel abra correctamente los caracteres especiales)
+    fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+    
+    // Escribir encabezados
+    $headers = [
+        'RUT',
+        'Nombres', 
+        'Apellido Paterno',
+        'Apellido Materno',
+        'Fecha Nacimiento',
+        'Teléfono',
+        'Email',
+        'Dirección',
+        'Familia',
+        'Grupo Familiar',
+        'Rol',
+        'Observaciones',
+        'Fecha Creación',
+        'Fecha Actualización'
+    ];
+    fputcsv($output, $headers, ';');
+    
+    // Escribir datos
+    foreach ($personas as $persona) {
+        $row = [
+            $persona['RUT'] ?? '',
+            $persona['NOMBRES'] ?? '',
+            $persona['APELLIDO_PATERNO'] ?? '',
+            $persona['APELLIDO_MATERNO'] ?? '',
+            $persona['FECHA_NACIMIENTO'] ?? '',
+            $persona['TELEFONO'] ?? '',
+            $persona['EMAIL'] ?? '',
+            $persona['DIRECCION'] ?? '',
+            $persona['FAMILIA'] ?? '',
+            $persona['GRUPO_FAMILIAR_NOMBRE'] ?? '',
+            $persona['ROL_NOMBRE'] ?? '',
+            $persona['OBSERVACIONES'] ?? '',
+            $persona['FECHA_CREACION'] ?? '',
+            $persona['FECHA_ACTUALIZACION'] ?? ''
+        ];
+        fputcsv($output, $row, ';');
+    }
+    
+    fclose($output);
 }
 ?>

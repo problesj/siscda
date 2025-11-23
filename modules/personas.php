@@ -113,6 +113,9 @@ try {
                         <i class="fas fa-search"></i>
                     </span>
                     <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas..." oninput="filtrarPersonas()">
+                    <button class="btn btn-outline-danger btn-limpiar" type="button" onclick="limpiarBusqueda()" title="Limpiar búsqueda">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             </div>
             <div class="col-md-6 text-end">
@@ -911,6 +914,40 @@ function filtrarPersonas() {
     }
 }
 
+// Función para limpiar la búsqueda
+function limpiarBusqueda() {
+    const searchInput = document.getElementById('searchInput');
+    const estadoBusqueda = document.getElementById('estadoBusqueda');
+    
+    // Limpiar el campo de búsqueda
+    searchInput.value = '';
+    
+    // Ocultar indicador de búsqueda
+    if (estadoBusqueda) {
+        estadoBusqueda.style.display = 'none';
+    }
+    
+    // Restaurar todos los datos
+    datosFiltrados = [...datosPersonas];
+    
+    // Reiniciar a la primera página
+    paginaActual = 1;
+    
+    // Aplicar ordenamiento y mostrar resultados
+    aplicarOrdenamientoYFiltrado();
+    
+    // Actualizar información de registros
+    const info = document.getElementById('infoRegistros');
+    if (info) {
+        info.textContent = `Mostrando todas las personas (${datosPersonas.length} total)`;
+    }
+    
+    // Enfocar el campo de búsqueda
+    searchInput.focus();
+    
+    console.log('🔍 Búsqueda limpiada, mostrando todas las personas');
+}
+
 // Función para cambiar el orden de las columnas
 function cambiarOrden(columna) {
     if (ordenActual === columna) {
@@ -1054,6 +1091,17 @@ function aplicarOrdenamientoYFiltrado() {
     generarPaginacion(datosOrdenados.length, paginaActual);
 }
 
+// Función para cambiar a una página específica
+function irAPagina(pagina) {
+    if (pagina < 1) return;
+    
+    const totalPaginas = Math.ceil(datosFiltrados.length / itemsPorPagina);
+    if (pagina > totalPaginas) return;
+    
+    paginaActual = pagina;
+    aplicarOrdenamientoYFiltrado();
+}
+
 // Función para mostrar una página específica
 function mostrarPagina(datos, pagina) {
     const tbody = document.querySelector('#tablaPersonas tbody');
@@ -1130,7 +1178,7 @@ function generarPaginacion(totalItems, paginaActual) {
     
     // Botón anterior
     if (paginaActual > 1) {
-        html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${paginaActual - 1})">‹</a></li>`;
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="event.preventDefault(); irAPagina(${paginaActual - 1}); return false;">‹</a></li>`;
     } else {
         html += `<li class="page-item disabled"><span class="page-link">‹</span></li>`;
     }
@@ -1181,13 +1229,13 @@ function generarPaginacion(totalItems, paginaActual) {
         } else if (item === paginaActual) {
             html += `<li class="page-item active"><span class="page-link">${item}</span></li>`;
         } else {
-            html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${item})">${item}</a></li>`;
+            html += `<li class="page-item"><a class="page-link" href="#" onclick="event.preventDefault(); irAPagina(${item}); return false;">${item}</a></li>`;
         }
     });
     
     // Botón siguiente
     if (paginaActual < totalPaginas) {
-        html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(datosFiltrados, ${paginaActual + 1})">›</a></li>`;
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="event.preventDefault(); irAPagina(${paginaActual + 1}); return false;">›</a></li>`;
     } else {
         html += `<li class="page-item disabled"><span class="page-link">›</span></li>`;
     }
@@ -1512,11 +1560,11 @@ function cargarDatosIniciales() {
         datosPersonas = personasData;
         datosFiltrados = [...datosPersonas];
         
-        // Mostrar primera página
-        mostrarPagina(datosFiltrados, 1);
+        // Establecer página inicial
+        paginaActual = 1;
         
-        // Generar paginación
-        generarPaginacion(datosFiltrados.length, 1);
+        // Aplicar ordenamiento y mostrar primera página
+        aplicarOrdenamientoYFiltrado();
         
         console.log('✅ Datos de personas cargados:', datosPersonas.length);
     } catch (error) {
@@ -2882,6 +2930,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <style>
 /* Estilos personalizados */
+
+/* Mejorar la apariencia del botón de limpiar */
+.btn-limpiar {
+    border-left: 1px solid #dee2e6;
+}
 
 /* Estilos para todas las pestañas - diseño consistente */
 .tab-content {
