@@ -827,6 +827,46 @@ try {
     </div>
 </div>
 
+<!-- Modal para Unificar Personas Duplicadas -->
+<div class="modal fade" id="modalUnificarPersonas" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-users-slash me-2"></i>Unificar Personas Duplicadas
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Instrucciones:</strong> Se mostrarán las personas con el mismo nombre y apellido paterno. 
+                    <ul class="mb-0 mt-2">
+                        <li>Selecciona la <strong>persona principal</strong> (la que se mantendrá) usando el botón de radio.</li>
+                        <li>Marca con el checkbox las <strong>personas duplicadas</strong> que deseas unificar.</li>
+                        <li>Todas las asistencias de las personas seleccionadas se transferirán a la persona principal.</li>
+                    </ul>
+                </div>
+                
+                <div id="contenidoDuplicados">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Buscando duplicados...</span>
+                        </div>
+                        <p class="mt-3">Buscando personas duplicadas...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="btnUnificarPersonas" onclick="procesarUnificacion()" disabled>
+                    <i class="fas fa-link me-2"></i>Unificar Personas Seleccionadas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Variables globales para el sistema de búsqueda y paginación
 let datosPersonas = [];
@@ -1142,6 +1182,9 @@ function mostrarPagina(datos, pagina) {
                             <button class="btn btn-sm btn-info" onclick="editarPersona(${persona.ID})" title="Editar">
                                 <i class="fas fa-edit"></i>
                     </button>
+                            <button class="btn btn-sm btn-warning" onclick="buscarDuplicados(${persona.ID})" title="Unificar duplicados">
+                                <i class="fas fa-users-slash"></i>
+                            </button>
                             <button class="btn btn-sm btn-danger" onclick="eliminarPersona(${persona.ID})" title="Eliminar">
                                 <i class="fas fa-trash"></i>
                             </button>
@@ -2926,6 +2969,316 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listener para el formulario de agregar visita a personas
     document.getElementById('formAgregarVisitaPersona').addEventListener('submit', procesarAgregarVisitaPersona);
 });
+
+// Función para buscar personas duplicadas de una persona específica
+function buscarDuplicados(personaId) {
+    const modal = new bootstrap.Modal(document.getElementById('modalUnificarPersonas'));
+    const contenido = document.getElementById('contenidoDuplicados');
+    const btnUnificar = document.getElementById('btnUnificarPersonas');
+    
+    // Mostrar loading
+    contenido.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Buscando duplicados...</span>
+            </div>
+            <p class="mt-3">Buscando personas duplicadas...</p>
+        </div>
+    `;
+    btnUnificar.disabled = true;
+    
+    // Abrir modal
+    modal.show();
+    
+    // Buscar duplicados de la persona específica
+    fetch('personas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=buscar_duplicados&persona_id=${personaId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.duplicados && data.duplicados.length > 0) {
+                mostrarDuplicados(data.duplicados, personaId);
+            } else {
+                contenido.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        No se encontraron personas duplicadas para esta persona.
+                    </div>
+                `;
+                btnUnificar.disabled = true;
+            }
+        } else {
+            contenido.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    ${data.message || 'No se encontraron personas duplicadas'}
+                </div>
+            `;
+            btnUnificar.disabled = true;
+        }
+    })
+    .catch(error => {
+        console.error('Error al buscar duplicados:', error);
+        contenido.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-times-circle me-2"></i>
+                Error al buscar personas duplicadas. Por favor, intenta nuevamente.
+            </div>
+        `;
+        btnUnificar.disabled = true;
+    });
+}
+
+// Función para mostrar los duplicados encontrados
+function mostrarDuplicados(duplicados, personaIdSeleccionada) {
+    const contenido = document.getElementById('contenidoDuplicados');
+    const btnUnificar = document.getElementById('btnUnificarPersonas');
+    
+    if (!duplicados || duplicados.length === 0) {
+        contenido.innerHTML = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle me-2"></i>
+                No se encontraron personas duplicadas en el sistema.
+            </div>
+        `;
+        btnUnificar.disabled = true;
+        return;
+    }
+    
+    // Como ahora solo buscamos duplicados de una persona específica, solo habrá un grupo
+    const grupo = duplicados[0];
+    
+    let html = `
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Se encontraron <strong>${grupo.length}</strong> persona(s) que podrían ser duplicados.
+            Selecciona la persona principal (la que se mantendrá) y las que se unificarán.
+        </div>
+        <div class="card border-warning">
+            <div class="card-header bg-warning bg-opacity-10">
+                <h6 class="mb-0">
+                    <i class="fas fa-users me-2"></i>
+                    Personas Duplicadas (${grupo.length} personas)
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th width="50">Principal</th>
+                                <th width="50">Unificar</th>
+                                <th>ID</th>
+                                <th>Nombres</th>
+                                <th>Apellidos</th>
+                                <th>RUT</th>
+                                <th>Familia</th>
+                                <th>Grupo Familiar</th>
+                                <th>Asistencias</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+    `;
+    
+    grupo.forEach(persona => {
+        const nombreCompleto = `${persona.NOMBRES || ''} ${persona.APELLIDO_PATERNO || ''} ${persona.APELLIDO_MATERNO || ''}`.trim();
+        const esPersonaSeleccionada = persona.ID == personaIdSeleccionada;
+        html += `
+            <tr ${esPersonaSeleccionada ? 'class="table-warning"' : ''}>
+                <td class="text-center">
+                    <input type="radio" name="persona_principal" value="${persona.ID}" 
+                           onchange="actualizarSeleccionPrincipal()" 
+                           ${esPersonaSeleccionada ? 'checked' : ''}>
+                </td>
+                <td class="text-center">
+                    ${!esPersonaSeleccionada ? `
+                        <input type="checkbox" class="form-check-input checkbox-unificar" 
+                               value="${persona.ID}" 
+                               id="unificar_${persona.ID}"
+                               onchange="actualizarEstadoBotonUnificar()"
+                               checked>
+                    ` : '<span class="text-muted">-</span>'}
+                </td>
+                <td>${persona.ID} ${esPersonaSeleccionada ? '<span class="badge bg-warning">Seleccionada</span>' : ''}</td>
+                <td>${persona.NOMBRES || '-'}</td>
+                <td>${persona.APELLIDO_PATERNO || '-'} ${persona.APELLIDO_MATERNO || ''}</td>
+                <td>${persona.RUT || '-'}</td>
+                <td>${persona.FAMILIA || '-'}</td>
+                <td>${persona.GRUPO_FAMILIAR_NOMBRE || 'Sin grupo'}</td>
+                <td>
+                    <span class="badge bg-info">${persona.TOTAL_ASISTENCIAS || 0}</span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="verPersona(${persona.ID})" title="Ver detalles">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    contenido.innerHTML = html;
+    
+    // Verificar si hay checkboxes marcados para habilitar el botón
+    actualizarEstadoBotonUnificar();
+    
+    // Guardar los duplicados en una variable global
+    window.duplicadosParaUnificar = duplicados;
+    window.personaIdSeleccionada = personaIdSeleccionada;
+}
+
+// Función para actualizar la selección de persona principal
+function actualizarSeleccionPrincipal() {
+    // Esta función se puede usar para validaciones adicionales si es necesario
+    console.log('Persona principal actualizada');
+    actualizarEstadoBotonUnificar();
+}
+
+// Función para actualizar el estado del botón de unificar
+function actualizarEstadoBotonUnificar() {
+    const checkboxes = document.querySelectorAll('.checkbox-unificar:checked');
+    const btnUnificar = document.getElementById('btnUnificarPersonas');
+    
+    if (checkboxes.length > 0) {
+        btnUnificar.disabled = false;
+    } else {
+        btnUnificar.disabled = true;
+    }
+}
+
+// Función para procesar la unificación
+function procesarUnificacion() {
+    if (!window.duplicadosParaUnificar || window.duplicadosParaUnificar.length === 0) {
+        Swal.fire('Error', 'No hay duplicados seleccionados para unificar', 'error');
+        return;
+    }
+    
+    // Obtener el grupo de duplicados (solo hay uno ahora)
+    const grupo = window.duplicadosParaUnificar[0];
+    
+    // Obtener la persona principal seleccionada
+    const radioPrincipal = document.querySelector('input[name="persona_principal"]:checked');
+    if (!radioPrincipal) {
+        Swal.fire('Error', 'Debes seleccionar una persona principal', 'error');
+        return;
+    }
+    
+    const personaPrincipalId = parseInt(radioPrincipal.value);
+    
+    // Obtener solo las personas duplicadas que tienen el checkbox marcado
+    const checkboxesMarcados = document.querySelectorAll('.checkbox-unificar:checked');
+    const personasDuplicadas = Array.from(checkboxesMarcados).map(cb => parseInt(cb.value));
+    
+    if (personasDuplicadas.length === 0) {
+        Swal.fire('Info', 'Debes seleccionar al menos una persona duplicada para unificar', 'info');
+        return;
+    }
+    
+    // Verificar que la persona principal no esté en la lista de duplicadas
+    if (personasDuplicadas.includes(personaPrincipalId)) {
+        Swal.fire('Error', 'La persona principal no puede estar en la lista de personas a unificar', 'error');
+        return;
+    }
+    
+    // Crear el array de unificaciones (solo uno ahora)
+    const unificaciones = [{
+        persona_principal_id: personaPrincipalId,
+        personas_duplicadas: personasDuplicadas
+    }];
+    
+    // Obtener información de las personas a unificar para el mensaje
+    const personasInfo = personasDuplicadas.map(id => {
+        const persona = grupo.find(p => p.ID == id);
+        return persona ? `${persona.NOMBRES} ${persona.APELLIDO_PATERNO} (ID: ${id}, ${persona.TOTAL_ASISTENCIAS || 0} asistencias)` : `ID: ${id}`;
+    }).join('<br>');
+    
+    // Confirmar acción
+    Swal.fire({
+        title: '¿Confirmar unificación?',
+        html: `
+            <p>Se unificarán <strong>${personasDuplicadas.length}</strong> persona(s) duplicada(s) con la persona principal.</p>
+            <p class="text-muted"><strong>Personas a unificar:</strong><br>${personasInfo}</p>
+            <p class="text-warning"><i class="fas fa-exclamation-triangle"></i> Esta acción no se puede deshacer.</p>
+            <p>Las asistencias de las personas duplicadas se transferirán a la persona principal.</p>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ffc107',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, unificar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Mostrar loading
+            Swal.fire({
+                title: 'Procesando...',
+                text: 'Unificando personas y transfiriendo asistencias',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Enviar petición
+            fetch('personas_actions.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `action=unificar_personas&unificaciones=${encodeURIComponent(JSON.stringify(unificaciones))}`
+            })
+            .then(response => {
+                return response.text().then(text => {
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error('Error parsing JSON:', e);
+                        console.error('Response text:', text);
+                        throw new Error('Respuesta no válida del servidor');
+                    }
+                });
+            })
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Unificación Exitosa',
+                        html: `
+                            <p>${data.message}</p>
+                            <p class="text-muted">Total de personas unificadas: <strong>${data.total_unificadas || 0}</strong></p>
+                            <p class="text-muted">Total de asistencias transferidas: <strong>${data.total_asistencias || 0}</strong></p>
+                        `,
+                        confirmButtonText: 'Entendido'
+                    }).then(() => {
+                        // Cerrar modal y recargar página
+                        bootstrap.Modal.getInstance(document.getElementById('modalUnificarPersonas')).hide();
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire('Error', data.message || 'Error al unificar las personas', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error en la unificación:', error);
+                Swal.fire('Error', `Error al procesar la unificación: ${error.message}`, 'error');
+            });
+        }
+    });
+}
 </script>
 
 <style>

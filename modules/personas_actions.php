@@ -815,6 +815,313 @@ $action = $_REQUEST['action'] ?? '';
             ]);
             break;
             
+        case 'buscar_duplicados':
+            // Buscar personas duplicadas de una persona específica
+            header('Content-Type: application/json');
+            
+            try {
+                $personaId = $_POST['persona_id'] ?? $_GET['persona_id'] ?? null;
+                
+                if (!$personaId) {
+                    throw new Exception('ID de persona no proporcionado');
+                }
+                
+                // Obtener datos de la persona seleccionada
+                $stmt = $pdo->prepare("SELECT * FROM personas WHERE ID = ?");
+                $stmt->execute([$personaId]);
+                $personaSeleccionada = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$personaSeleccionada) {
+                    throw new Exception('Persona no encontrada');
+                }
+                
+                // Buscar duplicados de esta persona específica SOLO por nombre y apellido paterno
+                if (empty($personaSeleccionada['NOMBRES']) || empty($personaSeleccionada['APELLIDO_PATERNO'])) {
+                    echo json_encode([
+                        'success' => true,
+                        'duplicados' => [],
+                        'message' => 'No se puede buscar duplicados: la persona no tiene nombre y apellido paterno'
+                    ]);
+                    break;
+                }
+                
+                // Obtener solo la primera palabra del apellido paterno
+                $apellidoPaternoPrimeraPalabra = trim(explode(' ', trim($personaSeleccionada['APELLIDO_PATERNO']))[0]);
+                
+                // Construir la consulta - solo por nombre y primera palabra del apellido paterno
+                $sql = "SELECT 
+                            p.ID,
+                            p.NOMBRES,
+                            p.APELLIDO_PATERNO,
+                            p.APELLIDO_MATERNO,
+                            p.RUT,
+                            p.FAMILIA,
+                            gf.NOMBRE as GRUPO_FAMILIAR_NOMBRE,
+                            (SELECT COUNT(*) FROM asistencias a WHERE a.PERSONA_ID = p.ID) as TOTAL_ASISTENCIAS
+                        FROM personas p
+                        LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID
+                        WHERE p.ID != ?
+                        AND LOWER(TRIM(p.NOMBRES)) = LOWER(TRIM(?))
+                        AND LOWER(TRIM(SUBSTRING_INDEX(p.APELLIDO_PATERNO, ' ', 1))) = LOWER(TRIM(?))
+                        AND p.NOMBRES IS NOT NULL 
+                        AND p.NOMBRES != ''
+                        AND p.APELLIDO_PATERNO IS NOT NULL 
+                        AND p.APELLIDO_PATERNO != ''
+                        ORDER BY p.NOMBRES, p.APELLIDO_PATERNO, p.ID";
+                
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    $personaId,
+                    trim($personaSeleccionada['NOMBRES']),
+                    $apellidoPaternoPrimeraPalabra
+                ]);
+                $duplicados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Agregar la persona seleccionada al inicio del grupo
+                $stmt = $pdo->prepare("SELECT 
+                            p.ID,
+                            p.NOMBRES,
+                            p.APELLIDO_PATERNO,
+                            p.APELLIDO_MATERNO,
+                            p.RUT,
+                            p.FAMILIA,
+                            gf.NOMBRE as GRUPO_FAMILIAR_NOMBRE,
+                            (SELECT COUNT(*) FROM asistencias a WHERE a.PERSONA_ID = p.ID) as TOTAL_ASISTENCIAS
+                        FROM personas p
+                        LEFT JOIN grupos_familiares gf ON p.GRUPO_FAMILIAR_ID = gf.ID
+                        WHERE p.ID = ?");
+                $stmt->execute([$personaId]);
+                $personaPrincipal = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                // Crear el grupo con la persona principal primero
+                $grupo = [$personaPrincipal];
+                foreach ($duplicados as $duplicado) {
+                    $grupo[] = $duplicado;
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'duplicados' => [$grupo], // Siempre un solo grupo ahora
+                    'total_grupos' => 1
+                ]);
+            } catch (Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Error al buscar duplicados: ' . $e->getMessage()
+                ]);
+            }
+            break;
+            
+        case 'unificar_personas':
+            // Unificar personas duplicadas y transferir sus asistencias
+            header('Content-Type: application/json');
+            
+            try {
+                $unificaciones = json_decode($_POST['unificaciones'] ?? '[]', true);
+                
+                if (empty($unificaciones)) {
+                    throw new Exception('No se proporcionaron unificaciones para procesar');
+                }
+                
+                $pdo->beginTransaction();
+                
+                $totalUnificadas = 0;
+                $totalAsistencias = 0;
+                
+                foreach ($unificaciones as $unificacion) {
+                    $personaPrincipalId = intval($unificacion['persona_principal_id']);
+                    $personasDuplicadas = array_map('intval', $unificacion['personas_duplicadas']);
+                    
+                    if (empty($personasDuplicadas)) {
+                        continue;
+                    }
+                    
+                    // Verificar que la persona principal existe
+                    $stmt = $pdo->prepare("SELECT ID FROM personas WHERE ID = ?");
+                    $stmt->execute([$personaPrincipalId]);
+                    if (!$stmt->fetch()) {
+                        throw new Exception("La persona principal con ID $personaPrincipalId no existe");
+                    }
+                    
+                    // Obtener datos de la persona principal para combinarlos con los duplicados
+                    $stmt = $pdo->prepare("SELECT * FROM personas WHERE ID = ?");
+                    $stmt->execute([$personaPrincipalId]);
+                    $personaPrincipal = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    // Para cada persona duplicada
+                    foreach ($personasDuplicadas as $personaDuplicadaId) {
+                        // Verificar que existe
+                        $stmt = $pdo->prepare("SELECT * FROM personas WHERE ID = ?");
+                        $stmt->execute([$personaDuplicadaId]);
+                        $personaDuplicada = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if (!$personaDuplicada) {
+                            continue;
+                        }
+                        
+                        // Transferir TODAS las asistencias de la persona duplicada a la principal
+                        // Primero, obtener todas las asistencias de la persona duplicada
+                        $stmt = $pdo->prepare("SELECT CULTO_ID, PRIMERA_VEZ, USUARIO_ID FROM asistencias WHERE PERSONA_ID = ?");
+                        $stmt->execute([$personaDuplicadaId]);
+                        $asistencias = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        error_log("=== INICIO TRANSFERENCIA ===");
+                        error_log("Persona duplicada ID: $personaDuplicadaId");
+                        error_log("Persona principal ID: $personaPrincipalId");
+                        error_log("Total asistencias a transferir: " . count($asistencias));
+                        
+                        if (count($asistencias) > 0) {
+                            foreach ($asistencias as $asistencia) {
+                                $cultoId = $asistencia['CULTO_ID'];
+                                $primeraVez = $asistencia['PRIMERA_VEZ'];
+                                $usuarioId = $asistencia['USUARIO_ID'];
+                                
+                                error_log("Procesando asistencia - Culto ID: $cultoId, Primera Vez: $primeraVez, Usuario ID: $usuarioId");
+                                
+                                // Verificar si la persona principal ya tiene asistencia en ese culto
+                                $stmt = $pdo->prepare("SELECT COUNT(*) as existe FROM asistencias WHERE PERSONA_ID = ? AND CULTO_ID = ?");
+                                $stmt->execute([$personaPrincipalId, $cultoId]);
+                                $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+                                $existe = intval($resultado['existe']);
+                                
+                                error_log("Verificación: existe = $existe");
+                                
+                                if ($existe == 0) {
+                                    // Si no existe, crear la asistencia
+                                    try {
+                                        $stmt = $pdo->prepare("INSERT INTO asistencias (PERSONA_ID, CULTO_ID, PRIMERA_VEZ, USUARIO_ID) VALUES (?, ?, ?, ?)");
+                                        $resultado_insert = $stmt->execute([
+                                            $personaPrincipalId,
+                                            $cultoId,
+                                            $primeraVez,
+                                            $usuarioId
+                                        ]);
+                                        
+                                        // Verificar que realmente se insertó
+                                        $stmt_verificar = $pdo->prepare("SELECT COUNT(*) as insertado FROM asistencias WHERE PERSONA_ID = ? AND CULTO_ID = ?");
+                                        $stmt_verificar->execute([$personaPrincipalId, $cultoId]);
+                                        $verificacion = $stmt_verificar->fetch(PDO::FETCH_ASSOC);
+                                        
+                                        if ($resultado_insert && intval($verificacion['insertado']) > 0) {
+                                            $totalAsistencias++;
+                                            error_log("✓ Asistencia transferida exitosamente: Culto $cultoId de persona $personaDuplicadaId a persona $personaPrincipalId");
+                                        } else {
+                                            $errorInfo = $stmt->errorInfo();
+                                            error_log("✗ Error al transferir asistencia: Culto $cultoId - " . ($errorInfo[2] ?? 'Error desconocido'));
+                                            error_log("  Verificación post-insert: " . $verificacion['insertado']);
+                                            throw new Exception("Error al transferir asistencia del culto $cultoId: " . ($errorInfo[2] ?? 'Error desconocido'));
+                                        }
+                                    } catch (PDOException $e) {
+                                        error_log("✗ Excepción PDO al transferir asistencia: " . $e->getMessage());
+                                        error_log("  Código de error: " . $e->getCode());
+                                        // Si es un error de duplicado (clave única), la asistencia ya existe, continuar
+                                        if ($e->getCode() == '23000' || strpos($e->getCode(), '23000') !== false) {
+                                            error_log("  (Error de duplicado ignorado, la asistencia ya existe)");
+                                            // Verificar si realmente existe ahora
+                                            $stmt_verificar = $pdo->prepare("SELECT COUNT(*) as existe_ahora FROM asistencias WHERE PERSONA_ID = ? AND CULTO_ID = ?");
+                                            $stmt_verificar->execute([$personaPrincipalId, $cultoId]);
+                                            $verificacion_ahora = $stmt_verificar->fetch(PDO::FETCH_ASSOC);
+                                            if (intval($verificacion_ahora['existe_ahora']) > 0) {
+                                                $totalAsistencias++;
+                                                error_log("  (Asistencia ya existe, contada como transferida)");
+                                            }
+                                        } else {
+                                            throw $e;
+                                        }
+                                    }
+                                } else {
+                                    error_log("→ La persona principal ya tiene asistencia en el culto $cultoId, no se duplica");
+                                }
+                            }
+                        } else {
+                            error_log("No hay asistencias para transferir de la persona $personaDuplicadaId");
+                        }
+                        
+                        error_log("=== FIN TRANSFERENCIA ===");
+                        error_log("Total asistencias transferidas hasta ahora: $totalAsistencias");
+                        
+                        // Combinar datos: actualizar la persona principal con datos de la duplicada si están vacíos
+                        $actualizaciones = [];
+                        $valores = [];
+                        
+                        $campos = ['RUT', 'APELLIDO_MATERNO', 'SEXO', 'FECHA_NACIMIENTO', 'TELEFONO', 'EMAIL', 'FAMILIA', 'ROL', 'GRUPO_FAMILIAR_ID', 'OBSERVACIONES', 'URL_IMAGEN'];
+                        
+                        foreach ($campos as $campo) {
+                            if (empty($personaPrincipal[$campo]) && !empty($personaDuplicada[$campo])) {
+                                $actualizaciones[] = "$campo = ?";
+                                $valores[] = $personaDuplicada[$campo];
+                            }
+                        }
+                        
+                        if (!empty($actualizaciones)) {
+                            $valores[] = $personaPrincipalId;
+                            $sql = "UPDATE personas SET " . implode(', ', $actualizaciones) . ", FECHA_ACTUALIZACION = NOW() WHERE ID = ?";
+                            $stmt = $pdo->prepare($sql);
+                            $stmt->execute($valores);
+                            
+                            // Refrescar los datos de la persona principal después de la actualización
+                            $stmt = $pdo->prepare("SELECT * FROM personas WHERE ID = ?");
+                            $stmt->execute([$personaPrincipalId]);
+                            $personaPrincipal = $stmt->fetch(PDO::FETCH_ASSOC);
+                        }
+                        
+                        // Verificar que las asistencias se transfirieron correctamente antes de eliminar
+                        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM asistencias WHERE PERSONA_ID = ?");
+                        $stmt->execute([$personaPrincipalId]);
+                        $resultado_final = $stmt->fetch(PDO::FETCH_ASSOC);
+                        $totalAsistenciasPrincipal = intval($resultado_final['total']);
+                        
+                        error_log("Verificación final: La persona principal $personaPrincipalId ahora tiene $totalAsistenciasPrincipal asistencias");
+                        
+                        // Eliminar las asistencias de la persona duplicada (ya fueron transferidas)
+                        $stmt = $pdo->prepare("DELETE FROM asistencias WHERE PERSONA_ID = ?");
+                        $resultado_delete = $stmt->execute([$personaDuplicadaId]);
+                        $asistenciasEliminadas = $stmt->rowCount();
+                        
+                        error_log("Asistencias eliminadas de persona duplicada $personaDuplicadaId: $asistenciasEliminadas (resultado: " . ($resultado_delete ? 'OK' : 'ERROR') . ")");
+                        
+                        // Eliminar la persona duplicada
+                        $stmt = $pdo->prepare("DELETE FROM personas WHERE ID = ?");
+                        $resultado_delete_persona = $stmt->execute([$personaDuplicadaId]);
+                        
+                        error_log("Persona duplicada $personaDuplicadaId eliminada: " . ($resultado_delete_persona ? 'OK' : 'ERROR'));
+                        
+                        $totalUnificadas++;
+                    }
+                }
+                
+                // Verificación final antes de commit
+                error_log("=== RESUMEN FINAL ===");
+                error_log("Total personas unificadas: $totalUnificadas");
+                error_log("Total asistencias transferidas: $totalAsistencias");
+                
+                $pdo->commit();
+                error_log("Transacción confirmada (COMMIT)");
+                
+                $mensaje = "Se unificaron exitosamente $totalUnificadas persona(s) duplicada(s)";
+                if ($totalAsistencias > 0) {
+                    $mensaje .= " y se transfirieron $totalAsistencias asistencia(s) a la persona principal";
+                } else {
+                    $mensaje .= ". No se encontraron asistencias nuevas para transferir (la persona principal ya tenía todas las asistencias)";
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => $mensaje,
+                    'total_unificadas' => $totalUnificadas,
+                    'total_asistencias' => $totalAsistencias
+                ]);
+            } catch (Exception $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Error al unificar personas: ' . $e->getMessage()
+                ]);
+            }
+            break;
+            
         default:
             throw new Exception('Acción no válida');
 }
