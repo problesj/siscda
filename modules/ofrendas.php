@@ -15,6 +15,16 @@ $esAdministrador = esAdministradorModulo($_SESSION['usuario_id'], 'Ofrendas');
 include '../includes/header.php'; 
 ?>
 
+<style>
+/* Ocultar columna "Culto" en dispositivos móviles */
+@media (max-width: 768px) {
+    #tablaOfrendas thead th:nth-child(3),
+    #tablaOfrendas tbody td:nth-child(3) {
+        display: none;
+    }
+}
+</style>
+
 <script>
 // Variable global para verificar si el usuario es administrador
 const esAdministradorOfrendas = <?php echo $esAdministrador ? 'true' : 'false'; ?>;
