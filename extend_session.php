@@ -35,10 +35,18 @@ try {
         case 'extend':
             // Extender la sesión
             if (renovarSesion()) {
-                // Actualizar último acceso en la base de datos
-                $pdo = conectarDB();
-                $stmt = $pdo->prepare("UPDATE usuarios SET ULTIMO_ACCESO = NOW() WHERE USUARIO_ID = ?");
-                $stmt->execute([$_SESSION['usuario_id']]);
+                // Actualizar último acceso en la base de datos (si la columna existe)
+                try {
+                    $pdo = conectarDB();
+                    $stmt = $pdo->query("SHOW COLUMNS FROM usuarios LIKE 'FECHA_ULTIMOACCESO'");
+                    if ($stmt->rowCount() > 0) {
+                        $stmt = $pdo->prepare("UPDATE usuarios SET FECHA_ULTIMOACCESO = NOW() WHERE USUARIO_ID = ?");
+                        $stmt->execute([$_SESSION['usuario_id']]);
+                    }
+                } catch (PDOException $e) {
+                    // Silenciar el error si la columna no existe
+                    error_log("Error al actualizar último acceso: " . $e->getMessage());
+                }
                 
                 echo json_encode(['success' => true, 'message' => 'Sesión extendida']);
             } else {

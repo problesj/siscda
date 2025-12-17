@@ -1,4 +1,14 @@
 <?php 
+require_once dirname(__DIR__) . '/session_config.php';
+require_once dirname(__DIR__) . '/config.php';
+require_once dirname(__DIR__) . '/includes/auth_functions.php';
+
+// Verificar autenticación
+verificarAutenticacion();
+
+// Verificar acceso al módulo de Asistencias
+verificarAccesoModulo('Asistencias');
+
 // Forzar recarga de caché
 $version = time();
 ?>

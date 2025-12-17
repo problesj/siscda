@@ -4,6 +4,15 @@ session_start();
 require_once '../config.php';
 require_once dirname(__DIR__) . '/includes/auth_functions.php';
 
+// Verificar autenticación
+verificarAutenticacion();
+
+// Verificar acceso al módulo de Usuarios
+verificarAccesoModulo('Usuarios');
+
+// Verificar si el usuario es Administrador del módulo
+$esAdministrador = esAdministradorModulo($_SESSION['usuario_id'], 'Usuarios');
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $action = $_POST['action'];
     
@@ -11,6 +20,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $pdo = conectarDB();
         
         if ($action == 'crear') {
+            // Solo administradores pueden crear
+            if (!$esAdministrador) {
+                $_SESSION['error'] = 'No tienes permisos para crear usuarios';
+                header('Location: usuarios.php');
+                exit();
+            }
             $username = limpiarDatos($_POST['username']);
             $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
             $nombre_completo = limpiarDatos($_POST['nombre_completo']);
@@ -22,6 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             $_SESSION['success'] = 'Usuario creado exitosamente';
         } elseif ($action == 'editar') {
+            // Solo administradores pueden editar
+            if (!$esAdministrador) {
+                $_SESSION['error'] = 'No tienes permisos para editar usuarios';
+                header('Location: usuarios.php');
+                exit();
+            }
             $usuario_id = (int)$_POST['usuario_id'];
             $username = limpiarDatos($_POST['username']);
             $nombre_completo = limpiarDatos($_POST['nombre_completo']);
@@ -70,6 +91,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         exit();
     } elseif ($action == 'eliminar') {
+        // Solo administradores pueden eliminar
+        if (!$esAdministrador) {
+            $_SESSION['error'] = 'No tienes permisos para eliminar usuarios';
+            header('Location: usuarios.php');
+            exit();
+        }
         $id = $_GET['id'];
         
         try {

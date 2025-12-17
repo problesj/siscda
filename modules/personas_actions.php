@@ -7,6 +7,12 @@ require_once dirname(__DIR__) . '/includes/auth_functions.php';
 // Verificar autenticación
 verificarAutenticacion();
 
+// Verificar acceso al módulo de Personas
+verificarAccesoModulo('Personas');
+
+// Verificar si el usuario es Administrador del módulo
+$esAdministrador = esAdministradorModulo($_SESSION['usuario_id'], 'Personas');
+
 // Obtener la acción solicitada
 $action = $_REQUEST['action'] ?? '';
     
@@ -60,6 +66,12 @@ $action = $_REQUEST['action'] ?? '';
             break;
             
         case 'crear':
+            // Solo administradores pueden crear
+            if (!$esAdministrador) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => 'No tienes permisos para crear personas']);
+                exit();
+            }
             // Crear nueva persona
             $datos = [
                 'RUT' => $_POST['rut'] ?? null,
@@ -111,6 +123,12 @@ $action = $_REQUEST['action'] ?? '';
             break;
             
         case 'editar':
+            // Solo administradores pueden editar
+            if (!$esAdministrador) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => 'No tienes permisos para editar personas']);
+                exit();
+            }
             // Editar persona existente
             $id = $_POST['persona_id'] ?? 0;
             if (!$id) {
@@ -195,6 +213,12 @@ $action = $_REQUEST['action'] ?? '';
             break;
             
         case 'eliminar':
+            // Solo administradores pueden eliminar
+            if (!$esAdministrador) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => 'No tienes permisos para eliminar personas']);
+                exit();
+            }
             // Eliminar persona
             $id = $_GET['id'] ?? 0;
             if (!$id) {

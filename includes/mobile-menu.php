@@ -18,35 +18,39 @@
                 <p class="mobile-menu-category-text">Dashboard</p>
             </a>
             
-            <!-- Usuarios -->
-            <a href="<?php echo getBaseUrl(); ?>/modules/usuarios.php" class="mobile-menu-category usuarios" onclick="selectMenuItem()">
-                <i class="fas fa-users mobile-menu-category-icon"></i>
-                <p class="mobile-menu-category-text">Usuarios</p>
-            </a>
+            <?php
+            // Obtener módulos del usuario actual
+            $modulosUsuario = [];
+            if (isset($_SESSION['usuario_id'])) {
+                require_once dirname(__DIR__) . '/includes/auth_functions.php';
+                $modulosUsuario = obtenerModulosUsuario($_SESSION['usuario_id']);
+            }
             
-            <!-- Personas -->
-            <a href="<?php echo getBaseUrl(); ?>/modules/personas.php" class="mobile-menu-category personas" onclick="selectMenuItem()">
-                <i class="fas fa-user-friends mobile-menu-category-icon"></i>
-                <p class="mobile-menu-category-text">Personas</p>
-            </a>
+            // Mapeo de módulos a URLs e iconos
+            $modulosDisponibles = [
+                'Usuarios' => ['url' => '/modules/usuarios.php', 'icono' => 'fa-users', 'clase' => 'usuarios'],
+                'Personas' => ['url' => '/modules/personas.php', 'icono' => 'fa-user-friends', 'clase' => 'personas'],
+                'Cultos' => ['url' => '/modules/cultos.php', 'icono' => 'fa-church', 'clase' => 'cultos'],
+                'Asistencias' => ['url' => '/modules/asistencias.php', 'icono' => 'fa-clipboard-check', 'clase' => 'asistencias'],
+                'Reportes' => ['url' => '/modules/reportes.php', 'icono' => 'fa-chart-bar', 'clase' => 'reportes'],
+                'Ofrendas' => ['url' => '/modules/ofrendas.php', 'icono' => 'fa-hand-holding-usd', 'clase' => 'ofrendas'],
+                'Diezmos' => ['url' => '/modules/diezmos.php', 'icono' => 'fa-coins', 'clase' => 'diezmos']
+            ];
             
-            <!-- Cultos -->
-            <a href="<?php echo getBaseUrl(); ?>/modules/cultos.php" class="mobile-menu-category cultos" onclick="selectMenuItem()">
-                <i class="fas fa-church mobile-menu-category-icon"></i>
-                <p class="mobile-menu-category-text">Cultos</p>
-            </a>
-            
-            <!-- Asistencias -->
-            <a href="<?php echo getBaseUrl(); ?>/modules/asistencias.php" class="mobile-menu-category asistencias" onclick="selectMenuItem()">
-                <i class="fas fa-clipboard-check mobile-menu-category-icon"></i>
-                <p class="mobile-menu-category-text">Asistencias</p>
-            </a>
-            
-            <!-- Reportes -->
-            <a href="<?php echo getBaseUrl(); ?>/modules/reportes.php" class="mobile-menu-category reportes" onclick="selectMenuItem()">
-                <i class="fas fa-chart-bar mobile-menu-category-icon"></i>
-                <p class="mobile-menu-category-text">Reportes</p>
-            </a>
+            // Mostrar módulos a los que el usuario tiene acceso
+            foreach ($modulosUsuario as $modulo): 
+                $nombreModulo = $modulo['nombre_modulo'];
+                if (isset($modulosDisponibles[$nombreModulo])):
+                    $moduloInfo = $modulosDisponibles[$nombreModulo];
+            ?>
+                <a href="<?php echo getBaseUrl() . $moduloInfo['url']; ?>" class="mobile-menu-category <?php echo $moduloInfo['clase']; ?>" onclick="selectMenuItem()">
+                    <i class="fas <?php echo $moduloInfo['icono']; ?> mobile-menu-category-icon"></i>
+                    <p class="mobile-menu-category-text"><?php echo $nombreModulo; ?></p>
+                </a>
+            <?php 
+                endif;
+            endforeach; 
+            ?>
             
             <!-- Mi Perfil -->
             <a href="<?php echo getBaseUrl(); ?>/perfil.php" class="mobile-menu-category perfil" onclick="selectMenuItem()">

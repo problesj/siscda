@@ -44,11 +44,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 			$_SESSION['nombre_completo'] = $usuario['NOMBRE_COMPLETO'];
 			$_SESSION['ultimo_acceso'] = time();
 			
-			// Actualizar último acceso en la base de datos
+			// Actualizar último acceso en la base de datos (si la columna existe)
 			try {
-				$stmt = $pdo->prepare("UPDATE usuarios SET ULTIMO_ACCESO = NOW() WHERE USUARIO_ID = ?");
-				$stmt->execute([$usuario['USUARIO_ID']]);
+				// Verificar si la columna existe antes de actualizar
+				$stmt = $pdo->query("SHOW COLUMNS FROM usuarios LIKE 'FECHA_ULTIMOACCESO'");
+				if ($stmt->rowCount() > 0) {
+					$stmt = $pdo->prepare("UPDATE usuarios SET FECHA_ULTIMOACCESO = NOW() WHERE USUARIO_ID = ?");
+					$stmt->execute([$usuario['USUARIO_ID']]);
+				}
 			} catch (PDOException $e) {
+				// Silenciar el error si la columna no existe
 				error_log("Error al actualizar último acceso: " . $e->getMessage());
 			}
 			

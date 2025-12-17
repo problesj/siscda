@@ -58,10 +58,10 @@ try {
             }
             
             // Obtener estadísticas de asistencia para esta persona
-            $sql_asistencias = "SELECT COUNT(*) as total_asistencias, MAX(c.fecha) as ultima_asistencia
+            $sql_asistencias = "SELECT COUNT(*) as total_asistencias, MAX(c.FECHA) as ultima_asistencia
                                FROM asistencias a 
-                               JOIN cultos c ON a.culto_id = c.id 
-                               WHERE a.persona_id = ? AND c.fecha BETWEEN ? AND ?";
+                               JOIN cultos c ON a.CULTO_ID = c.ID 
+                               WHERE a.PERSONA_ID = ? AND c.FECHA BETWEEN ? AND ?";
             
             $stmt_asistencias = $pdo->prepare($sql_asistencias);
             $stmt_asistencias->execute([$persona['id'], $fecha_inicio, $fecha_fin]);
@@ -71,7 +71,7 @@ try {
             $ultima_asistencia = $stats ? $stats['ultima_asistencia'] : null;
             
             // Calcular porcentaje (necesitamos el total de cultos en el período)
-            $sql_total_cultos = "SELECT COUNT(*) as total FROM cultos WHERE fecha BETWEEN ? AND ?";
+            $sql_total_cultos = "SELECT COUNT(*) as total FROM cultos WHERE FECHA BETWEEN ? AND ?";
             $stmt_total = $pdo->prepare($sql_total_cultos);
             $stmt_total->execute([$fecha_inicio, $fecha_fin]);
             $total_cultos = $stmt_total->fetch(PDO::FETCH_ASSOC)['total'];
@@ -135,8 +135,8 @@ try {
                 END as dia_semana,
                 c.TIPO_CULTO
             FROM asistencias a
-            INNER JOIN cultos c ON a.culto_id = c.id
-            WHERE a.persona_id = ?
+            INNER JOIN cultos c ON a.CULTO_ID = c.ID
+            WHERE a.PERSONA_ID = ?
         ";
         
         $params = [$persona_id];

@@ -1,4 +1,19 @@
-<?php include '../includes/header.php'; ?>
+<?php 
+require_once dirname(__DIR__) . '/session_config.php';
+require_once dirname(__DIR__) . '/config.php';
+require_once dirname(__DIR__) . '/includes/auth_functions.php';
+
+// Verificar autenticación
+verificarAutenticacion();
+
+// Verificar acceso al módulo de Cultos
+verificarAccesoModulo('Cultos');
+
+// Verificar si el usuario es Administrador del módulo
+$esAdministrador = esAdministradorModulo($_SESSION['usuario_id'], 'Cultos');
+
+include '../includes/header.php'; 
+?>
 
 <style>
 /* Estilos para el modal de asistentes */
@@ -46,9 +61,11 @@
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Gestión de Cultos</h1>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCulto">
+    <?php if ($esAdministrador): ?>
+    <button class="btn btn-primary" onclick="nuevoCulto()">
         <i class="fas fa-plus"></i> Nuevo Culto
     </button>
+    <?php endif; ?>
 </div>
 
 <?php
@@ -102,16 +119,19 @@ if (isset($_SESSION['error'])) {
                             echo "<td>" . ($row['FECHA_CREACION'] ? date('d/m/Y H:i', strtotime($row['FECHA_CREACION'])) : '-') . "</td>";
                             echo "<td>" . $row['asistentes'] . "</td>";
                             echo "<td>";
-                            echo "<button class='btn btn-sm btn-info' onclick='editarCulto(" . $row['ID'] . ")'>";
-                            echo "<i class='fas fa-edit'></i>";
-                            echo "</button> ";
+                            if ($esAdministrador) {
+                                echo "<button class='btn btn-sm btn-info' onclick='editarCulto(" . $row['ID'] . ")'>";
+                                echo "<i class='fas fa-edit'></i>";
+                                echo "</button> ";
+                            }
                             echo "<button class='btn btn-sm btn-success' onclick='tomarAsistencia(" . $row['ID'] . ")'>";
                             echo "<i class='fas fa-clipboard-check'></i>";
                             echo "</button> ";
-
-                            echo "<button class='btn btn-sm btn-danger' onclick='eliminarCulto(" . $row['ID'] . ")'>";
-                            echo "<i class='fas fa-trash'></i>";
-                            echo "</button>";
+                            if ($esAdministrador) {
+                                echo "<button class='btn btn-sm btn-danger' onclick='eliminarCulto(" . $row['ID'] . ", event); return false;'>";
+                                echo "<i class='fas fa-trash'></i>";
+                                echo "</button>";
+                            }
                             echo "</td>";
                             echo "</tr>";
                         }
@@ -130,19 +150,20 @@ if (isset($_SESSION['error'])) {
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Nuevo Culto</h5>
+                <h5 class="modal-title" id="modalCultoTitle">Nuevo Culto</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="cultos_actions.php" method="POST">
+            <form action="cultos_actions.php" method="POST" id="formCulto">
                 <div class="modal-body">
-                    <input type="hidden" name="action" value="crear">
+                    <input type="hidden" name="action" id="formAction" value="crear">
+                    <input type="hidden" name="id" id="cultoId" value="">
                     <div class="mb-3">
                         <label for="fecha" class="form-label">Fecha *</label>
-                        <input type="date" class="form-control" name="fecha" required>
+                        <input type="date" class="form-control" name="fecha" id="fecha" required>
                     </div>
                     <div class="mb-3">
                         <label for="tipo_culto" class="form-label">Tipo de Culto *</label>
-                        <select class="form-select" name="tipo_culto" required>
+                        <select class="form-select" name="tipo_culto" id="tipo_culto" required>
                             <option value="">Seleccionar tipo</option>
                             <option value="Estudio Bíblico">Estudio Bíblico</option>
                             <option value="Oración">Oración</option>
@@ -154,7 +175,7 @@ if (isset($_SESSION['error'])) {
                     </div>
                     <div class="mb-3">
                         <label for="observaciones" class="form-label">Observaciones</label>
-                        <textarea class="form-control" name="observaciones" rows="3" placeholder="Observaciones adicionales del culto..."></textarea>
+                        <textarea class="form-control" name="observaciones" id="observaciones" rows="3" placeholder="Observaciones adicionales del culto..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -169,6 +190,19 @@ if (isset($_SESSION['error'])) {
 
 
 <script>
+// Función para nuevo culto
+function nuevoCulto() {
+    // Resetear formulario
+    document.getElementById('formCulto').reset();
+    document.getElementById('modalCultoTitle').textContent = 'Nuevo Culto';
+    document.getElementById('formAction').value = 'crear';
+    document.getElementById('cultoId').value = '';
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalCulto'));
+    modal.show();
+}
+
 // Limpiar modal cuando se cierre
 document.getElementById('modalAsistentes').addEventListener('hidden.bs.modal', function () {
     document.getElementById('cuerpoTablaAsistentes').innerHTML = '';
@@ -180,9 +214,54 @@ document.getElementById('modalAsistentes').addEventListener('hidden.bs.modal', f
 
 // Funciones del módulo de cultos
 function editarCulto(id) {
-    // Implementar edición
-    alert('Editar culto ' + id);
+    // Cargar datos del culto
+    fetch('cultos_actions.php?action=obtener&id=' + id)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const culto = data.culto;
+                
+                // Cambiar título del modal
+                document.getElementById('modalCultoTitle').textContent = 'Editar Culto';
+                
+                // Cambiar acción del formulario
+                document.getElementById('formAction').value = 'editar';
+                document.getElementById('cultoId').value = culto.ID;
+                
+                // Llenar campos
+                document.getElementById('fecha').value = culto.FECHA;
+                document.getElementById('tipo_culto').value = culto.TIPO_CULTO;
+                document.getElementById('observaciones').value = culto.OBSERVACIONES || '';
+                
+                // Mostrar modal
+                const modal = new bootstrap.Modal(document.getElementById('modalCulto'));
+                modal.show();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.message || 'No se pudo cargar la información del culto'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al cargar la información del culto'
+            });
+        });
 }
+
+// Limpiar modal cuando se cierre para crear nuevo culto
+document.getElementById('modalCulto').addEventListener('hidden.bs.modal', function () {
+    // Resetear formulario
+    document.getElementById('formCulto').reset();
+    document.getElementById('modalCultoTitle').textContent = 'Nuevo Culto';
+    document.getElementById('formAction').value = 'crear';
+    document.getElementById('cultoId').value = '';
+});
 
 function tomarAsistencia(id) {
     window.location.href = 'asistencias.php?culto_id=' + id;
@@ -190,32 +269,40 @@ function tomarAsistencia(id) {
 
 
 
-function eliminarCulto(id) {
-    // Verificar si SwalUtils está disponible
-    if (typeof SwalUtils !== 'undefined' && typeof SwalUtils.showDeleteConfirm === 'function') {
-        SwalUtils.showDeleteConfirm('este culto').then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = 'cultos_actions.php?action=eliminar&id=' + id;
-            }
-        });
-    } else {
-        // Fallback: usar SweetAlert2 directamente
-        Swal.fire({
-            icon: 'warning',
-            title: '¿Está seguro?',
-            text: '¿Realmente desea eliminar este culto? Esta acción no se puede deshacer.',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = 'cultos_actions.php?action=eliminar&id=' + id;
-            }
-        });
+function eliminarCulto(id, event) {
+    // Prevenir cualquier comportamiento por defecto y propagación del evento
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
     }
+    
+    // Verificar que Swal esté disponible
+    if (typeof Swal === 'undefined') {
+        console.error('SweetAlert2 no está disponible');
+        return false;
+    }
+    
+    // Usar SweetAlert2 directamente - solo una alerta
+    Swal.fire({
+        icon: 'warning',
+        title: '¿Está seguro?',
+        text: '¿Realmente desea eliminar este culto? Esta acción no se puede deshacer.',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        reverseButtons: true,
+        allowOutsideClick: false,
+        allowEscapeKey: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = 'cultos_actions.php?action=eliminar&id=' + id;
+        }
+    });
+    
+    return false;
 }
 
 // Mostrar alertas de sesión con SweetAlert2

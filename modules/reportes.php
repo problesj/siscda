@@ -1,237 +1,463 @@
-<?php include '../includes/header.php'; ?>
+<?php 
+require_once dirname(__DIR__) . '/session_config.php';
+require_once dirname(__DIR__) . '/config.php';
+require_once dirname(__DIR__) . '/includes/auth_functions.php';
+
+// Verificar autenticación
+verificarAutenticacion();
+
+// Verificar acceso al módulo de Reportes
+verificarAccesoModulo('Reportes');
+
+include '../includes/header.php'; 
+
+// Obtener módulos del usuario para determinar qué reportes mostrar
+$modulosUsuario = obtenerModulosUsuario($_SESSION['usuario_id']);
+$tieneAccesoAsistencias = false;
+$tieneAccesoOfrendas = false;
+
+foreach ($modulosUsuario as $modulo) {
+    if ($modulo['nombre_modulo'] === 'Asistencias') {
+        $tieneAccesoAsistencias = true;
+    }
+    if ($modulo['nombre_modulo'] === 'Ofrendas') {
+        $tieneAccesoOfrendas = true;
+    }
+}
+
+// Si no tiene acceso a ningún módulo relacionado, redirigir
+if (!$tieneAccesoAsistencias && !$tieneAccesoOfrendas) {
+    $_SESSION['error'] = 'No tienes acceso a ningún módulo para generar reportes';
+    $baseUrl = getBaseUrl();
+    header('Location: ' . $baseUrl . '/dashboard.php');
+    exit();
+}
+
+// Obtener parámetros de filtro
+$fecha_inicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
+$fecha_fin = $_GET['fecha_fin'] ?? date('Y-m-d');
+$grupo_familiar = $_GET['grupo_familiar'] ?? '';
+
+// Determinar la pestaña activa por defecto
+$tab_activa = $_GET['tab'] ?? '';
+if (empty($tab_activa)) {
+    // Si solo tiene acceso a uno, usar ese; si tiene ambos, usar el primero disponible
+    if ($tieneAccesoAsistencias && !$tieneAccesoOfrendas) {
+        $tab_activa = 'asistencias';
+    } elseif ($tieneAccesoOfrendas && !$tieneAccesoAsistencias) {
+        $tab_activa = 'ofrendas';
+    } else {
+        $tab_activa = 'asistencias'; // Por defecto asistencias si tiene ambos
+    }
+}
+
+// Calcular total de cultos para el período
+try {
+    $pdo = conectarDB();
+    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM cultos WHERE FECHA BETWEEN ? AND ?");
+    $stmt->execute([$fecha_inicio, $fecha_fin]);
+    $result = $stmt->fetch();
+    $total_cultos = $result ? $result['total'] : 0;
+} catch (PDOException $e) {
+    $total_cultos = 0;
+}
+?>
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Reportes de Asistencias</h1>
+    <h1 class="h2">
+        <?php 
+        if ($tieneAccesoAsistencias && $tieneAccesoOfrendas) {
+            echo 'Reportes';
+        } elseif ($tieneAccesoAsistencias) {
+            echo 'Reporte de Asistencias';
+        } elseif ($tieneAccesoOfrendas) {
+            echo 'Reporte de Ofrendas';
+        }
+        ?>
+    </h1>
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-6">
+<!-- Pestañas de navegación -->
+<?php if ($tieneAccesoAsistencias && $tieneAccesoOfrendas): ?>
+<ul class="nav nav-tabs" id="reportesTabs" role="tablist">
+    <?php if ($tieneAccesoAsistencias): ?>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link <?php echo $tab_activa === 'asistencias' ? 'active' : ''; ?>" 
+                id="asistencias-tab" data-bs-toggle="tab" data-bs-target="#asistencias" 
+                type="button" role="tab" aria-controls="asistencias" aria-selected="<?php echo $tab_activa === 'asistencias' ? 'true' : 'false'; ?>">
+            <i class="fas fa-clipboard-check"></i> Reporte de Asistencias
+        </button>
+    </li>
+    <?php endif; ?>
+    <?php if ($tieneAccesoOfrendas): ?>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link <?php echo $tab_activa === 'ofrendas' ? 'active' : ''; ?>" 
+                id="ofrendas-tab" data-bs-toggle="tab" data-bs-target="#ofrendas" 
+                type="button" role="tab" aria-controls="ofrendas" aria-selected="<?php echo $tab_activa === 'ofrendas' ? 'true' : 'false'; ?>">
+            <i class="fas fa-hand-holding-usd"></i> Reporte de Ofrendas
+        </button>
+    </li>
+    <?php endif; ?>
+</ul>
+<?php endif; ?>
+
+<div class="tab-content" id="reportesTabsContent">
+    <!-- Pestaña de Asistencias -->
+    <?php if ($tieneAccesoAsistencias): ?>
+    <div class="tab-pane fade <?php echo ($tieneAccesoAsistencias && $tieneAccesoOfrendas) ? ($tab_activa === 'asistencias' ? 'show active' : '') : 'show active'; ?>" 
+         id="asistencias" role="tabpanel" aria-labelledby="asistencias-tab">
+        
+        <div class="row mb-4 mt-3">
+            <div class="col-md-6">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Filtros de Reporte</h6>
+                    </div>
+                    <div class="card-body">
+                        <form method="GET" action="">
+                            <input type="hidden" name="tab" value="asistencias">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
+                                        <input type="date" class="form-control" name="fecha_inicio" 
+                                               value="<?php echo htmlspecialchars($fecha_inicio); ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="fecha_fin" class="form-label">Fecha Fin</label>
+                                        <input type="date" class="form-control" name="fecha_fin" 
+                                               value="<?php echo htmlspecialchars($fecha_fin); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="grupo_familiar" class="form-label">Grupo Familiar</label>
+                                <select class="form-select" name="grupo_familiar">
+                                    <option value="">Todos los grupos</option>
+                                    <?php
+                                    try {
+                                        $stmt = $pdo->query("SELECT DISTINCT FAMILIA FROM personas WHERE FAMILIA IS NOT NULL AND FAMILIA != '' ORDER BY FAMILIA");
+                                        $familias = $stmt->fetchAll();
+                                        
+                                        foreach ($familias as $familia) {
+                                            if (isset($familia['FAMILIA']) && $familia['FAMILIA'] !== '') {
+                                                $selected = $grupo_familiar == $familia['FAMILIA'] ? 'selected' : '';
+                                                echo "<option value='" . htmlspecialchars($familia['FAMILIA']) . "' $selected>" . htmlspecialchars($familia['FAMILIA']) . "</option>";
+                                            }
+                                        }
+                                    } catch (PDOException $e) {
+                                        echo "<option value=''>Error de base de datos</option>";
+                                    }
+                                    ?>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Generar Reporte
+                            </button>
+                            <a href="reportes.php?tab=asistencias" class="btn btn-secondary ms-2">
+                                <i class="fas fa-refresh"></i> Limpiar
+                            </a>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Resumen</h6>
+                    </div>
+                    <div class="card-body">
+                        <?php
+                        try {
+                            // Total de asistencias en el período
+                            $sql_asistencias = "SELECT COUNT(*) as total FROM asistencias a 
+                                               JOIN cultos c ON a.CULTO_ID = c.ID 
+                                               JOIN personas p ON a.PERSONA_ID = p.ID 
+                                               WHERE c.FECHA BETWEEN ? AND ?";
+                            $params_asistencias = [$fecha_inicio, $fecha_fin];
+                            
+                            if ($grupo_familiar) {
+                                $sql_asistencias .= " AND p.FAMILIA = ?";
+                                $params_asistencias[] = $grupo_familiar;
+                            }
+                            
+                            $stmt = $pdo->prepare($sql_asistencias);
+                            $stmt->execute($params_asistencias);
+                            $result = $stmt->fetch();
+                            $total_asistencias = $result ? $result['total'] : 0;
+                            
+                            // Total de personas únicas
+                            $sql_personas = "SELECT COUNT(DISTINCT a.PERSONA_ID) as total FROM asistencias a 
+                                            JOIN cultos c ON a.CULTO_ID = c.ID 
+                                            JOIN personas p ON a.PERSONA_ID = p.ID 
+                                            WHERE c.FECHA BETWEEN ? AND ?";
+                            $params_personas = [$fecha_inicio, $fecha_fin];
+                            
+                            if ($grupo_familiar) {
+                                $sql_personas .= " AND p.FAMILIA = ?";
+                                $params_personas[] = $grupo_familiar;
+                            }
+                            
+                            $stmt = $pdo->prepare($sql_personas);
+                            $stmt->execute($params_personas);
+                            $result = $stmt->fetch();
+                            $personas_unicas = $result ? $result['total'] : 0;
+                            
+                            echo "<div class='row'>";
+                            echo "<div class='col-md-4 text-center'>";
+                            echo "<h4 class='text-primary'>$total_cultos</h4>";
+                            echo "<small class='text-muted'>Cultos</small>";
+                            echo "</div>";
+                            echo "<div class='col-md-4 text-center'>";
+                            echo "<h4 class='text-success'>$total_asistencias</h4>";
+                            echo "<small class='text-muted'>Asistencias</small>";
+                            echo "</div>";
+                            echo "<div class='col-md-4 text-center'>";
+                            echo "<h4 class='text-info'>$personas_unicas</h4>";
+                            echo "<small class='text-muted'>Personas Únicas</small>";
+                            echo "</div>";
+                            echo "</div>";
+                            
+                        } catch (PDOException $e) {
+                            echo "<p class='text-danger'>Error al generar resumen: " . htmlspecialchars($e->getMessage()) . "</p>";
+                        }
+                        ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">Filtros de Reporte</h6>
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">Reporte Detallado de Asistencias</h6>
             </div>
             <div class="card-body">
-                <form method="GET" action="">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
-                                <input type="date" class="form-control" name="fecha_inicio" 
-                                       value="<?php echo $_GET['fecha_inicio'] ?? date('Y-m-01'); ?>">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="fecha_fin" class="form-label">Fecha Fin</label>
-                                <input type="date" class="form-control" name="fecha_fin" 
-                                       value="<?php echo $_GET['fecha_fin'] ?? date('Y-m-d'); ?>">
-                            </div>
+                <!-- Buscador y controles -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas..." onkeyup="filtrarPersonas()">
+                            <button class="btn btn-outline-secondary" type="button" onclick="limpiarBusqueda()">
+                                <i class="fas fa-times"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="grupo_familiar" class="form-label">Grupo Familiar</label>
-                        <select class="form-select" name="grupo_familiar">
-                            <option value="">Todos los grupos</option>
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-end align-items-center">
+                            <label class="me-2">Mostrar:</label>
+                            <select class="form-select form-select-sm" id="itemsPorPagina" onchange="cambiarItemsPorPagina()" style="width: auto;">
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100" selected>100</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div id="contadorResultados" class="text-muted"></div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered" width="100%" cellspacing="0" id="tablaReporte">
+                        <thead>
+                            <tr>
+                                <th>Persona</th>
+                                <th>Grupo Familiar</th>
+                                <th>Total Asistencias</th>
+                                <th>Porcentaje Asistencia</th>
+                                <th>Última Asistencia</th>
+                                <th>Detalle por Culto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaReporteBody"></tbody>
+                    </table>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-12 col-md-4 mb-2 mb-md-0">
+                        <nav aria-label="Navegación de páginas">
+                            <ul class="pagination pagination-sm justify-content-start mb-0" id="paginacion"></ul>
+                        </nav>
+                    </div>
+                    <div class="col-12 col-md-4 text-center mb-2 mb-md-0">
+                        <div id="infoPaginacion" class="text-muted"></div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="d-flex align-items-center justify-content-end">
+                            <label class="me-2">Mostrar:</label>
+                            <select class="form-select form-select-sm me-2" id="itemsPorPaginaFooter" onchange="cambiarItemsPorPagina()" style="width: auto;">
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100" selected>100</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Pestaña de Ofrendas -->
+    <?php if ($tieneAccesoOfrendas): ?>
+    <div class="tab-pane fade <?php echo ($tieneAccesoAsistencias && $tieneAccesoOfrendas) ? ($tab_activa === 'ofrendas' ? 'show active' : '') : 'show active'; ?>" 
+         id="ofrendas" role="tabpanel" aria-labelledby="ofrendas-tab">
+        
+        <div class="row mb-4 mt-3">
+            <div class="col-md-6">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Filtros de Reporte</h6>
+                    </div>
+                    <div class="card-body">
+                        <form method="GET" action="">
+                            <input type="hidden" name="tab" value="ofrendas">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="fecha_inicio_ofrendas" class="form-label">Fecha Inicio</label>
+                                        <input type="date" class="form-control" name="fecha_inicio" 
+                                               value="<?php echo htmlspecialchars($fecha_inicio); ?>">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="fecha_fin_ofrendas" class="form-label">Fecha Fin</label>
+                                        <input type="date" class="form-control" name="fecha_fin" 
+                                               value="<?php echo htmlspecialchars($fecha_fin); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Generar Reporte
+                            </button>
+                            <a href="reportes.php?tab=ofrendas" class="btn btn-secondary ms-2">
+                                <i class="fas fa-refresh"></i> Limpiar
+                            </a>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Resumen</h6>
+                    </div>
+                    <div class="card-body">
+                        <?php
+                        try {
+                            // Total de ofrendas en el período
+                            $sql_ofrendas = "SELECT COUNT(*) as total, SUM(o.monto) as total_monto 
+                                            FROM ofrendas o 
+                                            JOIN cultos c ON o.id_culto = c.ID 
+                                            WHERE c.FECHA BETWEEN ? AND ?";
+                            $stmt = $pdo->prepare($sql_ofrendas);
+                            $stmt->execute([$fecha_inicio, $fecha_fin]);
+                            $result = $stmt->fetch();
+                            $total_ofrendas = $result ? $result['total'] : 0;
+                            $total_monto = $result ? ($result['total_monto'] ?? 0) : 0;
+                            
+                            echo "<div class='row'>";
+                            echo "<div class='col-md-6 text-center'>";
+                            echo "<h4 class='text-primary'>$total_cultos</h4>";
+                            echo "<small class='text-muted'>Cultos</small>";
+                            echo "</div>";
+                            echo "<div class='col-md-6 text-center'>";
+                            echo "<h4 class='text-success'>$" . number_format($total_monto, 0, ',', '.') . "</h4>";
+                            echo "<small class='text-muted'>Total Ofrendas</small>";
+                            echo "</div>";
+                            echo "</div>";
+                            
+                        } catch (PDOException $e) {
+                            echo "<p class='text-danger'>Error al generar resumen: " . htmlspecialchars($e->getMessage()) . "</p>";
+                        }
+                        ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">Reporte Detallado de Ofrendas</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" width="100%" cellspacing="0" id="tablaOfrendas">
+                        <thead>
+                            <tr>
+                                <th>ID Culto</th>
+                                <th>Fecha</th>
+                                <th>Tipo de Culto</th>
+                                <th>Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaOfrendasBody">
                             <?php
                             try {
-                                $pdo = conectarDB();
+                                $sql = "SELECT 
+                                            c.ID as culto_id,
+                                            c.FECHA,
+                                            DATE_FORMAT(c.FECHA, '%d/%m/%Y') as fecha_formateada,
+                                            c.TIPO_CULTO,
+                                            COALESCE(o.monto, 0) as monto
+                                        FROM cultos c
+                                        LEFT JOIN ofrendas o ON c.ID = o.id_culto
+                                        WHERE c.FECHA BETWEEN ? AND ?
+                                        ORDER BY c.FECHA DESC";
                                 
-                                // Obtener familias únicas de la tabla personas
-                                $stmt = $pdo->query("SELECT DISTINCT FAMILIA FROM personas WHERE FAMILIA IS NOT NULL AND FAMILIA != '' ORDER BY FAMILIA");
-                                $familias = $stmt->fetchAll();
+                                $stmt = $pdo->prepare($sql);
+                                $stmt->execute([$fecha_inicio, $fecha_fin]);
+                                $ofrendas = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 
-                                if (empty($familias)) {
-                                    echo "<option value=''>No hay familias disponibles</option>";
+                                $total_general = 0;
+                                
+                                if (empty($ofrendas)) {
+                                    echo "<tr><td colspan='4' class='text-center'>No se encontraron ofrendas en el período seleccionado</td></tr>";
                                 } else {
-                                    foreach ($familias as $familia) {
-                                        if (isset($familia['FAMILIA']) && $familia['FAMILIA'] !== '') {
-                                            $selected = ($_GET['grupo_familiar'] ?? '') == $familia['FAMILIA'] ? 'selected' : '';
-                                            echo "<option value='" . htmlspecialchars($familia['FAMILIA']) . "' $selected>" . htmlspecialchars($familia['FAMILIA']) . "</option>";
-                                        }
+                                    foreach ($ofrendas as $ofrenda) {
+                                        $monto = floatval($ofrenda['monto']);
+                                        $total_general += $monto;
+                                        $monto_formateado = number_format($monto, 0, ',', '.');
+                                        
+                                        echo "<tr>";
+                                        echo "<td>" . htmlspecialchars($ofrenda['culto_id']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($ofrenda['fecha_formateada']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($ofrenda['TIPO_CULTO']) . "</td>";
+                                        echo "<td class='text-end'><strong>$" . $monto_formateado . "</strong></td>";
+                                        echo "</tr>";
                                     }
+                                    
+                                    // Fila de total
+                                    echo "<tr class='table-info'>";
+                                    echo "<td colspan='3' class='text-end'><strong>TOTAL:</strong></td>";
+                                    echo "<td class='text-end'><strong>$" . number_format($total_general, 0, ',', '.') . "</strong></td>";
+                                    echo "</tr>";
                                 }
                             } catch (PDOException $e) {
-                                echo "<option value=''>Error de base de datos: " . htmlspecialchars($e->getMessage()) . "</option>";
-                            } catch (Exception $e) {
-                                echo "<option value=''>Error general: " . htmlspecialchars($e->getMessage()) . "</option>";
+                                echo "<tr><td colspan='4' class='text-center text-danger'>Error al cargar ofrendas: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
                             }
                             ?>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-search"></i> Generar Reporte
-                    </button>
-                    <a href="reportes.php" class="btn btn-secondary ms-2">
-                        <i class="fas fa-refresh"></i> Limpiar
-                    </a>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-6">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">Resumen</h6>
-            </div>
-            <div class="card-body">
-                <?php
-                $fecha_inicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
-                $fecha_fin = $_GET['fecha_fin'] ?? date('Y-m-d');
-                $grupo_familiar = $_GET['grupo_familiar'] ?? '';
-                
-                try {
-                    // Total de cultos en el período
-                    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM cultos c WHERE c.fecha BETWEEN ? AND ?");
-                    $stmt->execute([$fecha_inicio, $fecha_fin]);
-                    $result = $stmt->fetch();
-                    $total_cultos = $result ? $result['total'] : 0;
-                    
-                    // Total de asistencias en el período
-                    $sql_asistencias = "SELECT COUNT(*) as total FROM asistencias a 
-                                       JOIN cultos c ON a.culto_id = c.id 
-                                       JOIN personas p ON a.persona_id = p.id 
-                                       WHERE c.fecha BETWEEN ? AND ?";
-                    $params_asistencias = [$fecha_inicio, $fecha_fin];
-                    
-                    if ($grupo_familiar) {
-                        $sql_asistencias .= " AND p.FAMILIA = ?";
-                        $params_asistencias[] = $grupo_familiar;
-                    }
-                    
-                    $stmt = $pdo->prepare($sql_asistencias);
-                    $stmt->execute($params_asistencias);
-                    $result = $stmt->fetch();
-                    $total_asistencias = $result ? $result['total'] : 0;
-                    
-                    // Total de personas únicas
-                    $sql_personas = "SELECT COUNT(DISTINCT a.persona_id) as total FROM asistencias a 
-                                    JOIN cultos c ON a.culto_id = c.id 
-                                    JOIN personas p ON a.persona_id = p.id 
-                                    WHERE c.fecha BETWEEN ? AND ?";
-                    $params_personas = [$fecha_inicio, $fecha_fin];
-                    
-                    if ($grupo_familiar) {
-                        $sql_personas .= " AND p.FAMILIA = ?";
-                        $params_personas[] = $grupo_familiar;
-                    }
-                    
-                    $stmt = $pdo->prepare($sql_personas);
-                    $stmt->execute($params_personas);
-                    $result = $stmt->fetch();
-                    $personas_unicas = $result ? $result['total'] : 0;
-                    
-                    echo "<div class='row'>";
-                    echo "<div class='col-md-4 text-center'>";
-                    echo "<h4 class='text-primary'>$total_cultos</h4>";
-                    echo "<small class='text-muted'>Cultos</small>";
-                    echo "</div>";
-                    echo "<div class='col-md-4 text-center'>";
-                    echo "<h4 class='text-success'>$total_asistencias</h4>";
-                    echo "<small class='text-muted'>Asistencias</small>";
-                    echo "</div>";
-                    echo "<div class='col-md-4 text-center'>";
-                    echo "<h4 class='text-info'>$personas_unicas</h4>";
-                    echo "<small class='text-muted'>Personas Únicas</small>";
-                    echo "</div>";
-                    echo "</div>";
-                    
-                } catch (PDOException $e) {
-                    echo "<p class='text-danger'>Error al generar resumen: " . htmlspecialchars($e->getMessage()) . "</p>";
-                }
-                ?>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="card shadow mb-4">
-    <div class="card-header">
-        <h6 class="m-0 font-weight-bold text-primary">Reporte Detallado de Asistencias</h6>
-    </div>
-    <div class="card-body">
-        <!-- Buscador y controles -->
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <div class="input-group">
-                    <input type="text" class="form-control" id="searchInput" placeholder="Buscar personas..." onkeyup="filtrarPersonas()">
-                    <button class="btn btn-outline-secondary" type="button" onclick="limpiarBusqueda()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <small class="text-muted">La búsqueda se actualiza automáticamente mientras escribes (Enter deshabilitado)</small>
-            </div>
-            <div class="col-md-6">
-                <div class="d-flex justify-content-end align-items-center">
-                    <label class="me-2">Mostrar:</label>
-                    <select class="form-select form-select-sm" id="itemsPorPagina" onchange="cambiarItemsPorPagina()" style="width: auto;">
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100" selected>100</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Contador de resultados -->
-        <div class="row mb-3">
-            <div class="col-12">
-                <div id="contadorResultados" class="text-muted">
-                    <!-- Se actualizará dinámicamente -->
-                </div>
-            </div>
-        </div>
-        
-        <div class="table-responsive">
-            <table class="table table-bordered" width="100%" cellspacing="0" id="tablaReporte">
-                <thead>
-                    <tr>
-                        <th>Persona</th>
-                        <th>Grupo Familiar</th>
-                        <th>Total Asistencias</th>
-                        <th>Porcentaje Asistencia</th>
-                        <th>Última Asistencia</th>
-                        <th>Detalle por Culto</th>
-                    </tr>
-                </thead>
-                <tbody id="tablaReporteBody">
-                    <!-- Los datos se cargarán dinámicamente con JavaScript -->
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Paginación -->
-        <div class="row mt-3">
-            <div class="col-12 col-md-4 mb-2 mb-md-0">
-                <nav aria-label="Navegación de páginas">
-                    <ul class="pagination pagination-sm justify-content-start mb-0" id="paginacion">
-                        <!-- La paginación se generará dinámicamente -->
-                    </ul>
-                </nav>
-            </div>
-            <div class="col-12 col-md-4 text-center mb-2 mb-md-0">
-                <div id="infoPaginacion" class="text-muted">
-                    <!-- Se actualizará dinámicamente -->
-                </div>
-            </div>
-            <div class="col-12 col-md-4">
-                <div class="d-flex align-items-center justify-content-end">
-                    <label class="me-2 d-none d-sm-inline">Mostrar:</label>
-                    <label class="me-2 d-inline d-sm-none">Items:</label>
-                    <select class="form-select form-select-sm me-2" id="itemsPorPaginaFooter" onchange="cambiarItemsPorPagina()" style="width: auto;">
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100" selected>100</option>
-                    </select>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 
 <!-- Modal para mostrar asistencias detalladas por persona -->
+<?php if ($tieneAccesoAsistencias): ?>
 <div class="modal fade" id="modalDetalleAsistencias" tabindex="-1" aria-labelledby="modalDetalleAsistenciasLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -267,9 +493,7 @@
                                     <th>Estado</th>
                                 </tr>
                             </thead>
-                            <tbody id="tablaAsistencias">
-                                <!-- Las asistencias se cargarán aquí dinámicamente -->
-                            </tbody>
+                            <tbody id="tablaAsistencias"></tbody>
                         </table>
                     </div>
                     
@@ -285,9 +509,10 @@
         </div>
     </div>
 </div>
+<?php endif; ?>
 
 <script>
-// Variables globales para paginación y búsqueda
+// Variables globales para paginación y búsqueda (Asistencias)
 let datosPersonas = [];
 let datosFiltrados = [];
 let paginaActual = 1;
@@ -413,7 +638,7 @@ function generarPaginacion() {
     // Botón anterior
     const liAnterior = document.createElement('li');
     liAnterior.className = `page-item ${paginaActual === 1 ? 'disabled' : ''}`;
-    liAnterior.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${paginaActual - 1})">Anterior</a>`;
+    liAnterior.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${paginaActual - 1}); return false;">Anterior</a>`;
     paginacion.appendChild(liAnterior);
     
     // Números de página
@@ -423,14 +648,14 @@ function generarPaginacion() {
     for (let i = inicio; i <= fin; i++) {
         const li = document.createElement('li');
         li.className = `page-item ${i === paginaActual ? 'active' : ''}`;
-        li.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${i})">${i}</a>`;
+        li.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${i}); return false;">${i}</a>`;
         paginacion.appendChild(li);
     }
     
     // Botón siguiente
     const liSiguiente = document.createElement('li');
     liSiguiente.className = `page-item ${paginaActual === totalPaginas ? 'disabled' : ''}`;
-    liSiguiente.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${paginaActual + 1})">Siguiente</a>`;
+    liSiguiente.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${paginaActual + 1}); return false;">Siguiente</a>`;
     paginacion.appendChild(liSiguiente);
 }
 
@@ -441,6 +666,7 @@ function cambiarPagina(pagina) {
         paginaActual = pagina;
         aplicarPaginacion();
     }
+    return false;
 }
 
 // Función para actualizar información de paginación
@@ -472,22 +698,19 @@ function mostrarError(mensaje) {
     tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${mensaje}</td></tr>`;
 }
 
-// Función para ver detalle (existente)
+// Función para ver detalle
 function verDetalle(personaId) {
-    // Mostrar el modal
     const modal = new bootstrap.Modal(document.getElementById('modalDetalleAsistencias'));
     modal.show();
     
-    // Mostrar indicador de carga
     document.getElementById('cargandoDetalle').style.display = 'block';
     document.getElementById('contenidoDetalle').style.display = 'none';
     document.getElementById('sinAsistencias').style.display = 'none';
     
-    // Cargar datos de la persona y sus asistencias
     cargarDetalleAsistencias(personaId);
 }
 
-// Función para cargar detalle de asistencias (existente)
+// Función para cargar detalle de asistencias
 function cargarDetalleAsistencias(personaId) {
     const formData = new FormData();
     formData.append('action', 'obtener_detalle_asistencias_persona');
@@ -504,11 +727,9 @@ function cargarDetalleAsistencias(personaId) {
         document.getElementById('cargandoDetalle').style.display = 'none';
         
         if (data.success) {
-            // Mostrar información de la persona
             document.getElementById('nombrePersona').textContent = data.persona.nombre_completo;
             document.getElementById('grupoFamiliar').textContent = data.persona.grupo_familiar;
             
-            // Mostrar asistencias
             const tablaAsistencias = document.getElementById('tablaAsistencias');
             tablaAsistencias.innerHTML = '';
             
@@ -544,10 +765,28 @@ function cargarDetalleAsistencias(personaId) {
     });
 }
 
-// Inicializar cuando se carga la página
+// Inicializar cuando se carga la página (solo para pestaña de asistencias)
+<?php if ($tieneAccesoAsistencias): ?>
 document.addEventListener('DOMContentLoaded', function() {
-    cargarDatosIniciales();
+    const tabActiva = document.querySelector('#asistencias-tab');
+    if (tabActiva && tabActiva.classList.contains('active')) {
+        cargarDatosIniciales();
+    } else if (!tabActiva) {
+        // Si no hay pestañas (solo tiene acceso a asistencias), cargar directamente
+        cargarDatosIniciales();
+    }
+    
+    // Cargar datos cuando se cambia a la pestaña de asistencias
+    const asistenciasTab = document.getElementById('asistencias-tab');
+    if (asistenciasTab) {
+        asistenciasTab.addEventListener('shown.bs.tab', function() {
+            if (datosPersonas.length === 0) {
+                cargarDatosIniciales();
+            }
+        });
+    }
 });
+<?php endif; ?>
 </script>
 
 <?php include '../includes/footer.php'; ?>

@@ -21,7 +21,7 @@ if (isset($_SESSION['error'])) {
                 // Obtener información del usuario actual
                 try {
                     $pdo = conectarDB();
-                    $stmt = $pdo->prepare("SELECT USUARIO_ID, USERNAME, NOMBRE_COMPLETO, EMAIL, FECHA_CREACION, FECHA_ACTUALIZACION, ULTIMO_ACCESO FROM usuarios WHERE USUARIO_ID = ?");
+                    $stmt = $pdo->prepare("SELECT USUARIO_ID, USERNAME, NOMBRE_COMPLETO, EMAIL, FECHA_CREACION, FECHA_ACTUALIZACION, FECHA_ULTIMOACCESO FROM usuarios WHERE USUARIO_ID = ?");
                     $stmt->execute([$_SESSION['usuario_id']]);
                     $usuario = $stmt->fetch();
                 } catch (PDOException $e) {
@@ -108,7 +108,7 @@ if (isset($_SESSION['error'])) {
                             <strong>Último Acceso:</strong>
                         </div>
                         <div class="col-sm-8">
-                            <?php echo $usuario['ULTIMO_ACCESO'] ? date('d/m/Y H:i', strtotime($usuario['ULTIMO_ACCESO'])) : 'No registrado'; ?>
+                            <?php echo $usuario['FECHA_ULTIMOACCESO'] ? date('d/m/Y H:i', strtotime($usuario['FECHA_ULTIMOACCESO'])) : 'No registrado'; ?>
                         </div>
                     </div>
                 <?php else: ?>

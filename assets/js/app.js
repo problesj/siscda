@@ -18,10 +18,54 @@ document.addEventListener('DOMContentLoaded', function() {
     const sidebarLinks = document.querySelectorAll('.sidebar .nav-link');
     
     sidebarLinks.forEach(link => {
-        if (link.getAttribute('href') && currentPath.includes(link.getAttribute('href'))) {
-            link.classList.add('active');
+        const linkHref = link.getAttribute('href');
+        if (linkHref) {
+            // Normalizar rutas eliminando barras finales
+            let normalizedCurrent = currentPath.replace(/\/$/, '');
+            let normalizedLink = linkHref.replace(/\/$/, '');
+            
+            // Extraer nombres de archivo
+            const currentFile = normalizedCurrent.split('/').pop() || '';
+            const linkFile = normalizedLink.split('/').pop() || '';
+            
+            // Comparar: ruta completa exacta, nombre de archivo, o si contiene la ruta
+            let isActive = false;
+            
+            // 1. Comparación exacta de rutas completas (sin importar mayúsculas/minúsculas)
+            if (normalizedCurrent.toLowerCase() === normalizedLink.toLowerCase()) {
+                isActive = true;
+            }
+            // 2. Comparación por nombre de archivo (útil para módulos)
+            else if (currentFile && linkFile && currentFile.toLowerCase() === linkFile.toLowerCase()) {
+                isActive = true;
+            }
+            // 3. Si la ruta actual termina con la ruta del enlace
+            else if (normalizedCurrent.toLowerCase().endsWith(normalizedLink.toLowerCase())) {
+                isActive = true;
+            }
+            // 4. Si la ruta del enlace termina con la ruta actual
+            else if (normalizedLink.toLowerCase().endsWith(normalizedCurrent.toLowerCase())) {
+                isActive = true;
+            }
+            // 5. Comparar nombres de archivo sin extensión
+            else if (currentFile.replace(/\.php$/i, '').toLowerCase() === linkFile.replace(/\.php$/i, '').toLowerCase()) {
+                isActive = true;
+            }
+            
+            if (isActive) {
+                link.classList.add('active');
+            }
         }
     });
+    
+    // Asegurar que solo un enlace esté activo a la vez
+    const activeLinks = document.querySelectorAll('.sidebar .nav-link.active');
+    if (activeLinks.length > 1) {
+        // Si hay múltiples enlaces activos, mantener solo el primero
+        for (let i = 1; i < activeLinks.length; i++) {
+            activeLinks[i].classList.remove('active');
+        }
+    }
 
     // Funcionalidad para tablas responsivas
     const tables = document.querySelectorAll('.table-responsive table');
@@ -32,14 +76,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Confirmación para acciones destructivas
-    const deleteButtons = document.querySelectorAll('.btn-danger');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            if (!confirm('¿Está seguro de realizar esta acción? Esta operación no se puede deshacer.')) {
-                e.preventDefault();
-            }
-        });
-    });
+    // Nota: Esta funcionalidad se ha deshabilitado porque los módulos individuales
+    // manejan sus propias confirmaciones con SweetAlert2
+    // Si un botón .btn-danger no tiene su propia lógica de confirmación,
+    // se puede agregar aquí de forma específica
 
     // Auto-hide para alertas
     const alerts = document.querySelectorAll('.alert');

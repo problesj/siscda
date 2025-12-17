@@ -1,4 +1,19 @@
-<?php include '../includes/header.php'; ?>
+<?php 
+require_once dirname(__DIR__) . '/session_config.php';
+require_once dirname(__DIR__) . '/config.php';
+require_once dirname(__DIR__) . '/includes/auth_functions.php';
+
+// Verificar autenticación
+verificarAutenticacion();
+
+// Verificar acceso al módulo de Usuarios
+verificarAccesoModulo('Usuarios');
+
+// Verificar si el usuario es Administrador del módulo
+$esAdministrador = esAdministradorModulo($_SESSION['usuario_id'], 'Usuarios');
+
+include '../includes/header.php'; 
+?>
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Gestión de Usuarios</h1>
@@ -51,14 +66,16 @@ if (isset($_SESSION['error'])) {
                             echo "<td>" . $row['NOMBRE_COMPLETO'] . "</td>";
                             echo "<td>" . $row['EMAIL'] . "</td>";
                             echo "<td>" . ($row['ACTIVO'] ? 'Activo' : 'Inactivo') . "</td>";
-                            echo "<td>
-                                    <button class='btn btn-sm btn-info' onclick='editarUsuario(" . $row['USUARIO_ID'] . ")'>
-                                        <i class='fas fa-edit'></i>
-                                    </button>
-                                    <button class='btn btn-sm btn-danger' onclick='eliminarUsuario(" . $row['USUARIO_ID'] . ")'>
-                                        <i class='fas fa-trash'></i>
-                                    </button>
-                                  </td>";
+                            echo "<td>";
+                            if ($esAdministrador) {
+                                echo "<button class='btn btn-sm btn-info' onclick='editarUsuario(" . $row['USUARIO_ID'] . ")'>";
+                                echo "<i class='fas fa-edit'></i>";
+                                echo "</button> ";
+                                echo "<button class='btn btn-sm btn-danger' onclick='eliminarUsuario(" . $row['USUARIO_ID'] . ")'>";
+                                echo "<i class='fas fa-trash'></i>";
+                                echo "</button>";
+                            }
+                            echo "</td>";
                             echo "</tr>";
                         }
                     } catch (PDOException $e) {

@@ -1,4 +1,24 @@
-<?php include '../includes/header.php'; ?>
+<?php 
+require_once dirname(__DIR__) . '/session_config.php';
+require_once dirname(__DIR__) . '/config.php';
+require_once dirname(__DIR__) . '/includes/auth_functions.php';
+
+// Verificar autenticación
+verificarAutenticacion();
+
+// Verificar acceso al módulo de Personas
+verificarAccesoModulo('Personas');
+
+// Verificar si el usuario es Administrador del módulo
+$esAdministrador = esAdministradorModulo($_SESSION['usuario_id'], 'Personas');
+
+include '../includes/header.php'; 
+?>
+
+<script>
+// Variable global para verificar si el usuario es administrador
+const esAdministradorPersonas = <?php echo $esAdministrador ? 'true' : 'false'; ?>;
+</script>
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Gestión de Personas</h1>
@@ -99,9 +119,11 @@ try {
                     <button class="btn btn-info" onclick="exportarFormatoAsistencia()">
                         <i class="fas fa-clipboard-list"></i> Formato Asistencia
                     </button>
+                    <?php if ($esAdministrador): ?>
                     <button class="btn btn-primary" onclick="nuevoPersona()">
                         <i class="fas fa-plus"></i> Nueva Persona
                     </button>
+                    <?php endif; ?>
                 </div>
     </div>
     <div class="card-body">
@@ -1179,6 +1201,7 @@ function mostrarPagina(datos, pagina) {
                             <button class="btn btn-sm btn-primary" onclick="verPersona(${persona.ID})" title="Ver datos">
                                 <i class="fas fa-eye"></i>
                     </button>
+                            ${esAdministradorPersonas ? `
                             <button class="btn btn-sm btn-info" onclick="editarPersona(${persona.ID})" title="Editar">
                                 <i class="fas fa-edit"></i>
                     </button>
@@ -1188,6 +1211,7 @@ function mostrarPagina(datos, pagina) {
                             <button class="btn btn-sm btn-danger" onclick="eliminarPersona(${persona.ID})" title="Eliminar">
                                 <i class="fas fa-trash"></i>
                             </button>
+                            ` : ''}
                         </div>
                 </td>
                 </tr>
