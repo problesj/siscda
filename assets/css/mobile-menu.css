@@ -11,6 +11,7 @@
     overflow-y: auto;
 }
 
+
 /* Estilos para asegurar visibilidad */
 .mobile-menu-container.show {
     display: block !important;
@@ -72,7 +73,7 @@
 }
 
 .mobile-menu-category {
-    background: linear-gradient(135deg, var(--category-color) 0%, var(--category-color-dark) 100%);
+    background: linear-gradient(135deg, var(--category-color, #6c757d) 0%, var(--category-color-dark, #545b62) 100%);
     border-radius: 15px;
     padding: 1.5rem 1rem;
     text-align: center;
@@ -147,6 +148,31 @@
 .mobile-menu-category.reportes {
     --category-color: #20c997;
     --category-color-dark: #17a2b8;
+    background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%);
+}
+
+.mobile-menu-category.ofrendas {
+    --category-color: #6f42c1;
+    --category-color-dark: #5a2d91;
+    background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%) !important;
+    background-color: #6f42c1 !important;
+}
+
+.mobile-menu-category.ofrendas:hover {
+    background: linear-gradient(135deg, #5a2d91 0%, #4a1d7a 100%) !important;
+    background-color: #5a2d91 !important;
+}
+
+.mobile-menu-category.diezmos {
+    --category-color: #17a2b8;
+    --category-color-dark: #117a8b;
+    background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%) !important;
+    background-color: #17a2b8 !important;
+}
+
+.mobile-menu-category.diezmos:hover {
+    background: linear-gradient(135deg, #117a8b 0%, #0d5f6f 100%) !important;
+    background-color: #117a8b !important;
 }
 
 .mobile-menu-category.perfil {

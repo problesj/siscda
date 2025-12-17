@@ -33,7 +33,7 @@
                 'Cultos' => ['url' => '/modules/cultos.php', 'icono' => 'fa-church', 'clase' => 'cultos'],
                 'Asistencias' => ['url' => '/modules/asistencias.php', 'icono' => 'fa-clipboard-check', 'clase' => 'asistencias'],
                 'Reportes' => ['url' => '/modules/reportes.php', 'icono' => 'fa-chart-bar', 'clase' => 'reportes'],
-                'Ofrendas' => ['url' => '/modules/ofrendas.php', 'icono' => 'fa-hand-holding-usd', 'clase' => 'ofrendas'],
+                'Ofrendas' => ['url' => '/modules/ofrendas.php', 'icono' => 'fa-money-bill-alt', 'clase' => 'ofrendas'],
                 'Diezmos' => ['url' => '/modules/diezmos.php', 'icono' => 'fa-coins', 'clase' => 'diezmos']
             ];
             

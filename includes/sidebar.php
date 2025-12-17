@@ -12,7 +12,7 @@ $modulosDisponibles = [
     'Cultos' => ['url' => '/siscda/modules/cultos.php', 'icono' => 'fa-church'],
     'Asistencias' => ['url' => '/siscda/modules/asistencias.php', 'icono' => 'fa-clipboard-check'],
     'Reportes' => ['url' => '/siscda/modules/reportes.php', 'icono' => 'fa-chart-bar'],
-    'Ofrendas' => ['url' => '/siscda/modules/ofrendas.php', 'icono' => 'fa-hand-holding-usd'],
+    'Ofrendas' => ['url' => '/siscda/modules/ofrendas.php', 'icono' => 'fa-money-bill-alt'],
     'Diezmos' => ['url' => '/siscda/modules/diezmos.php', 'icono' => 'fa-coins']
 ];
 ?>
