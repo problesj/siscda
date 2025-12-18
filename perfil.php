@@ -229,11 +229,24 @@ document.getElementById('formCambiarPassword').addEventListener('submit', functi
         return false;
     }
     
-    // Confirmar el cambio
-    if (!confirm('¿Estás seguro de que quieres cambiar tu contraseña?')) {
-        e.preventDefault();
-        return false;
-    }
+    // Confirmar el cambio con SweetAlert2
+    e.preventDefault();
+    Swal.fire({
+        title: '¿Cambiar contraseña?',
+        text: '¿Estás seguro de que quieres cambiar tu contraseña?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, cambiar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Si confirma, enviar el formulario
+            document.getElementById('formCambiarPassword').submit();
+        }
+    });
+    return false;
 });
 
 // Mostrar/ocultar contraseñas

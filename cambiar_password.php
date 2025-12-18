@@ -2,6 +2,7 @@
 require_once 'session_config.php';
 session_start();
 require_once 'config.php';
+require_once 'includes/auth_functions.php';
 
 // Verificar que el usuario esté autenticado
 if (!isset($_SESSION['usuario_id'])) {

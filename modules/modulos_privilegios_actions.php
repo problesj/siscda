@@ -197,6 +197,82 @@ try {
             ]);
             break;
             
+        case 'obtener_privilegios_usuario':
+            $id_usuario = intval($_POST['id_usuario'] ?? $_GET['id_usuario'] ?? 0);
+            
+            if (!$id_usuario) {
+                throw new Exception('ID de usuario no proporcionado');
+            }
+            
+            $stmt = $pdo->prepare("
+                SELECT 
+                    p.id_modulo,
+                    p.id_rol_sistema
+                FROM privilegios p
+                WHERE p.id_usuario = ?
+            ");
+            $stmt->execute([$id_usuario]);
+            $privilegios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            echo json_encode([
+                'success' => true,
+                'privilegios' => $privilegios
+            ]);
+            break;
+            
+        case 'guardar_privilegios_masivos':
+            $id_usuario = intval($_POST['id_usuario'] ?? 0);
+            $privilegiosJson = $_POST['privilegios'] ?? '[]';
+            
+            if (!$id_usuario) {
+                throw new Exception('ID de usuario no proporcionado');
+            }
+            
+            $privilegios = json_decode($privilegiosJson, true);
+            if (!is_array($privilegios)) {
+                throw new Exception('Formato de privilegios inválido');
+            }
+            
+            // Iniciar transacción
+            $pdo->beginTransaction();
+            
+            try {
+                // Eliminar todos los privilegios actuales del usuario
+                $stmt = $pdo->prepare("DELETE FROM privilegios WHERE id_usuario = ?");
+                $stmt->execute([$id_usuario]);
+                
+                // Insertar los nuevos privilegios
+                $stmt = $pdo->prepare("INSERT INTO privilegios (id_usuario, id_modulo, id_rol_sistema, fecha_registro) VALUES (?, ?, ?, NOW())");
+                $privilegiosInsertados = 0;
+                
+                foreach ($privilegios as $privilegio) {
+                    $id_modulo = intval($privilegio['id_modulo'] ?? 0);
+                    $id_rol_sistema = intval($privilegio['id_rol_sistema'] ?? 0);
+                    
+                    if ($id_modulo && $id_rol_sistema) {
+                        $stmt->execute([$id_usuario, $id_modulo, $id_rol_sistema]);
+                        $privilegiosInsertados++;
+                    }
+                }
+                
+                // Confirmar transacción
+                $pdo->commit();
+                
+                $mensaje = $privilegiosInsertados > 0 
+                    ? "Se han asignado {$privilegiosInsertados} privilegio" . ($privilegiosInsertados > 1 ? 's' : '') . " exitosamente"
+                    : "Todos los privilegios han sido eliminados (usuario sin acceso)";
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => $mensaje
+                ]);
+            } catch (Exception $e) {
+                // Revertir transacción en caso de error
+                $pdo->rollBack();
+                throw $e;
+            }
+            break;
+            
         default:
             throw new Exception('Acción no válida');
     }

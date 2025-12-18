@@ -142,39 +142,52 @@ include '../includes/header.php';
     </div>
 </div>
 
-<!-- Modal para Asignar Privilegio -->
+<!-- Modal para Asignar Privilegios (Mejorado - Todos los módulos) -->
 <div class="modal fade" id="modalPrivilegio" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modalPrivilegioTitle">Asignar Privilegio</h5>
+                <h5 class="modal-title" id="modalPrivilegioTitle">Asignar Privilegios por Usuario</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="formPrivilegio">
                 <div class="modal-body">
-                    <input type="hidden" id="privilegioId" name="id">
-                    <div class="mb-3">
-                        <label for="usuarioPrivilegio" class="form-label">Usuario *</label>
-                        <select class="form-select" id="usuarioPrivilegio" name="id_usuario" required>
+                    <div class="mb-4">
+                        <label for="usuarioPrivilegio" class="form-label fw-bold">Seleccionar Usuario *</label>
+                        <select class="form-select form-select-lg" id="usuarioPrivilegio" name="id_usuario" required onchange="cargarPrivilegiosUsuario()">
                             <option value="">Seleccionar usuario</option>
                         </select>
+                        <div class="form-text">Selecciona un usuario para asignar o modificar sus privilegios en todos los módulos</div>
                     </div>
+                    
+                    <hr>
+                    
                     <div class="mb-3">
-                        <label for="moduloPrivilegio" class="form-label">Módulo *</label>
-                        <select class="form-select" id="moduloPrivilegio" name="id_modulo" required>
-                            <option value="">Seleccionar módulo</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="rolPrivilegio" class="form-label">Privilegio *</label>
-                        <select class="form-select" id="rolPrivilegio" name="id_rol_sistema" required>
-                            <option value="">Seleccionar privilegio</option>
-                        </select>
+                        <h6 class="fw-bold mb-3">Privilegios por Módulo</h6>
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-bordered table-hover">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="width: 50%;">Módulo</th>
+                                        <th style="width: 50%;">Privilegio</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyModulosPrivilegios">
+                                    <tr>
+                                        <td colspan="2" class="text-center text-muted">
+                                            <i class="fas fa-info-circle"></i> Selecciona un usuario para ver los módulos
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="guardarPrivilegio()">Guardar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarPrivilegiosMasivos()">
+                        <i class="fas fa-save"></i> Guardar Todos los Privilegios
+                    </button>
                 </div>
             </form>
         </div>
@@ -307,14 +320,27 @@ function filtrarPrivilegios() {
     mostrarPrivilegios(privilegiosFiltrados);
 }
 
+// Variables para almacenar módulos y roles
+let modulosActivos = [];
+let rolesSistema = [];
+
 // Función para abrir modal de privilegio
 function abrirModalPrivilegio() {
     const modal = new bootstrap.Modal(document.getElementById('modalPrivilegio'));
     document.getElementById('formPrivilegio').reset();
-    document.getElementById('privilegioId').value = '';
-    document.getElementById('modalPrivilegioTitle').textContent = 'Asignar Privilegio';
+    document.getElementById('usuarioPrivilegio').value = '';
+    document.getElementById('modalPrivilegioTitle').textContent = 'Asignar Privilegios por Usuario';
     
-    // Cargar usuarios y módulos
+    // Limpiar tabla de módulos
+    document.getElementById('tbodyModulosPrivilegios').innerHTML = `
+        <tr>
+            <td colspan="2" class="text-center text-muted">
+                <i class="fas fa-info-circle"></i> Selecciona un usuario para ver los módulos
+            </td>
+        </tr>
+    `;
+    
+    // Cargar usuarios, módulos y roles
     cargarOpcionesModal();
     modal.show();
 }
@@ -351,11 +377,7 @@ function cargarOpcionesModal() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            const select = document.getElementById('moduloPrivilegio');
-            select.innerHTML = '<option value="">Seleccionar módulo</option>';
-            data.modulos.filter(m => m.estado_modulo == 1).forEach(modulo => {
-                select.innerHTML += `<option value="${modulo.id}">${modulo.nombre_modulo}</option>`;
-            });
+            modulosActivos = data.modulos.filter(m => m.estado_modulo == 1);
         }
     });
     
@@ -370,47 +392,151 @@ function cargarOpcionesModal() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            const select = document.getElementById('rolPrivilegio');
-            select.innerHTML = '<option value="">Seleccionar privilegio</option>';
-            data.roles.forEach(rol => {
-                select.innerHTML += `<option value="${rol.id}">${rol.nombre_rol}</option>`;
-            });
+            rolesSistema = data.roles;
         }
     });
 }
 
-// Función para guardar privilegio
-function guardarPrivilegio() {
-    const form = document.getElementById('formPrivilegio');
-    const formData = new FormData(form);
+// Función para cargar privilegios del usuario seleccionado
+function cargarPrivilegiosUsuario() {
+    const usuarioId = document.getElementById('usuarioPrivilegio').value;
+    const tbody = document.getElementById('tbodyModulosPrivilegios');
     
-    const data = {
-        action: 'crear_privilegio',
-        id_usuario: formData.get('id_usuario'),
-        id_modulo: formData.get('id_modulo'),
-        id_rol_sistema: formData.get('id_rol_sistema')
-    };
+    if (!usuarioId) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="2" class="text-center text-muted">
+                    <i class="fas fa-info-circle"></i> Selecciona un usuario para ver los módulos
+                </td>
+            </tr>
+        `;
+        return;
+    }
     
+    // Cargar privilegios actuales del usuario
     fetch('modulos_privilegios_actions.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams(data)
+        body: `action=obtener_privilegios_usuario&id_usuario=${usuarioId}`
     })
     .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            bootstrap.Modal.getInstance(document.getElementById('modalPrivilegio')).hide();
-            cargarPrivilegios();
-            Swal.fire('Éxito', result.message, 'success');
-        } else {
-            Swal.fire('Error', result.message, 'error');
+    .then(data => {
+        const privilegiosUsuario = {};
+        if (data.success && data.privilegios) {
+            data.privilegios.forEach(p => {
+                privilegiosUsuario[p.id_modulo] = p.id_rol_sistema;
+            });
+        }
+        
+        // Mostrar todos los módulos activos con sus privilegios
+        tbody.innerHTML = '';
+        modulosActivos.forEach(modulo => {
+            const row = document.createElement('tr');
+            const privilegioActual = privilegiosUsuario[modulo.id] || '';
+            
+            // Crear select con opciones: Sin acceso, Usuario, Administrador
+            let selectHTML = '<select class="form-select form-select-sm privilegio-modulo" data-modulo-id="' + modulo.id + '">';
+            selectHTML += '<option value="">Sin acceso</option>';
+            
+            rolesSistema.forEach(rol => {
+                const selected = privilegioActual == rol.id ? 'selected' : '';
+                selectHTML += `<option value="${rol.id}" ${selected}>${rol.nombre_rol}</option>`;
+            });
+            
+            selectHTML += '</select>';
+            
+            row.innerHTML = `
+                <td><strong>${modulo.nombre_modulo}</strong></td>
+                <td>${selectHTML}</td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        if (modulosActivos.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="2" class="text-center text-muted">
+                        <i class="fas fa-info-circle"></i> No hay módulos activos disponibles
+                    </td>
+                </tr>
+            `;
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        Swal.fire('Error', 'Error al guardar el privilegio', 'error');
+        console.error('Error al cargar privilegios del usuario:', error);
+        Swal.fire('Error', 'Error al cargar los privilegios del usuario', 'error');
+    });
+}
+
+// Función para guardar todos los privilegios masivamente
+function guardarPrivilegiosMasivos() {
+    const usuarioId = document.getElementById('usuarioPrivilegio').value;
+    
+    if (!usuarioId) {
+        Swal.fire('Error', 'Debes seleccionar un usuario', 'error');
+        return;
+    }
+    
+    // Recopilar todos los privilegios seleccionados
+    const privilegios = [];
+    const selects = document.querySelectorAll('.privilegio-modulo');
+    
+    selects.forEach(select => {
+        const moduloId = select.getAttribute('data-modulo-id');
+        const rolId = select.value;
+        
+        // Si tiene un valor (no es "Sin acceso"), agregarlo
+        if (rolId) {
+            privilegios.push({
+                id_modulo: moduloId,
+                id_rol_sistema: rolId
+            });
+        }
+    });
+    
+    // Confirmar antes de guardar
+    Swal.fire({
+        title: '¿Guardar privilegios?',
+        text: `Se ${privilegios.length > 0 ? 'asignarán' : 'eliminarán todos los'} privilegios para este usuario`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Enviar datos al servidor
+            const data = {
+                action: 'guardar_privilegios_masivos',
+                id_usuario: usuarioId,
+                privilegios: JSON.stringify(privilegios)
+            };
+            
+            fetch('modulos_privilegios_actions.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalPrivilegio')).hide();
+                    cargarPrivilegios();
+                    Swal.fire('Éxito', result.message, 'success');
+                } else {
+                    Swal.fire('Error', result.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'Error al guardar los privilegios', 'error');
+            });
+        }
     });
 }
 
