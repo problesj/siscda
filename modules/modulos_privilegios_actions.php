@@ -110,6 +110,8 @@ try {
             $stmt = $pdo->prepare("
                 SELECT 
                     p.id,
+                    p.id_usuario,
+                    u.USUARIO_ID,
                     u.USERNAME as nombre_usuario,
                     u.NOMBRE_COMPLETO,
                     m.nombre_modulo,

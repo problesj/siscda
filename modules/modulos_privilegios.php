@@ -84,7 +84,7 @@ include '../includes/header.php';
                             <span class="input-group-text">
                                 <i class="fas fa-search"></i>
                             </span>
-                            <input type="text" class="form-control" id="searchInputPrivilegios" placeholder="Buscar por usuario o módulo..." oninput="filtrarPrivilegios()">
+                            <input type="text" class="form-control" id="searchInputPrivilegios" placeholder="Buscar por usuario..." oninput="filtrarPrivilegios()">
                         </div>
                     </div>
                 </div>
@@ -200,6 +200,7 @@ let datosModulos = [];
 let datosPrivilegios = [];
 let datosUsuarios = [];
 let datosRoles = [];
+let modulosOrdenados = []; // Para mantener el orden de los módulos en las columnas
 
 // Función para cargar módulos
 function cargarModulos() {
@@ -259,65 +260,201 @@ function mostrarModulos(modulos) {
 
 // Función para cargar privilegios
 function cargarPrivilegios() {
+    // Primero cargar módulos activos para crear las columnas
     fetch('modulos_privilegios_actions.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: 'action=obtener_privilegios'
+        body: 'action=obtener_modulos'
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            datosPrivilegios = data.privilegios;
-            mostrarPrivilegios(data.privilegios);
+            modulosOrdenados = data.modulos.filter(m => m.estado_modulo == 1).sort((a, b) => 
+                a.nombre_modulo.localeCompare(b.nombre_modulo)
+            );
+            
+            // Luego cargar privilegios
+            fetch('modulos_privilegios_actions.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'action=obtener_privilegios'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    datosPrivilegios = data.privilegios;
+                    mostrarPrivilegios(data.privilegios);
+                }
+            })
+            .catch(error => {
+                console.error('Error al cargar privilegios:', error);
+            });
         }
     })
     .catch(error => {
-        console.error('Error al cargar privilegios:', error);
+        console.error('Error al cargar módulos:', error);
     });
 }
 
-// Función para mostrar privilegios
+// Función para mostrar privilegios agrupados por usuario
 function mostrarPrivilegios(privilegios) {
+    const thead = document.querySelector('#tablaPrivilegios thead tr');
     const tbody = document.getElementById('tbodyPrivilegios');
+    
+    // Crear encabezado dinámico
+    let headerHTML = '<th>Usuario</th>';
+    modulosOrdenados.forEach(modulo => {
+        headerHTML += `<th class="text-center">${modulo.nombre_modulo}</th>`;
+    });
+    headerHTML += '<th>Fecha Registro</th><th>Acciones</th>';
+    thead.innerHTML = headerHTML;
+    
     tbody.innerHTML = '';
     
-    if (privilegios.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay privilegios asignados</td></tr>';
+    if (privilegios.length === 0 && modulosOrdenados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${2 + modulosOrdenados.length}" class="text-center">No hay privilegios asignados</td></tr>`;
         return;
     }
     
+    // Agrupar privilegios por usuario
+    const privilegiosPorUsuario = {};
+    const usuariosInfo = {};
+    
     privilegios.forEach(privilegio => {
-        const row = document.createElement('tr');
-        const rolBadge = privilegio.privilegio === 'Administrador'
-            ? '<span class="badge bg-danger">Administrador</span>'
-            : '<span class="badge bg-info">Usuario</span>';
+        const usuarioId = privilegio.id_usuario || privilegio.USUARIO_ID;
+        const nombreUsuario = privilegio.nombre_usuario || privilegio.USERNAME;
+        const nombreCompleto = privilegio.NOMBRE_COMPLETO || '';
         
-        row.innerHTML = `
-            <td>${privilegio.nombre_usuario || '-'}</td>
-            <td>${privilegio.nombre_modulo || '-'}</td>
-            <td>${rolBadge}</td>
-            <td>${privilegio.fecha_registro || '-'}</td>
-            <td>
-                <button class="btn btn-sm btn-danger" onclick="eliminarPrivilegio(${privilegio.id})" title="Eliminar">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        `;
-        tbody.appendChild(row);
+        if (!privilegiosPorUsuario[usuarioId]) {
+            privilegiosPorUsuario[usuarioId] = {};
+            usuariosInfo[usuarioId] = {
+                nombre: nombreUsuario,
+                nombreCompleto: nombreCompleto,
+                fechaRegistro: privilegio.fecha_registro || '-'
+            };
+        }
+        
+        // Mapear módulo a privilegio
+        const moduloNombre = privilegio.nombre_modulo;
+        privilegiosPorUsuario[usuarioId][moduloNombre] = {
+            privilegio: privilegio.privilegio,
+            id: privilegio.id
+        };
+    });
+    
+    // Obtener todos los usuarios (incluso los que no tienen privilegios)
+    fetch('modulos_privilegios_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=obtener_usuarios'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const todosUsuarios = data.usuarios;
+            
+            // Crear filas para cada usuario
+            todosUsuarios.forEach(usuario => {
+                const usuarioId = usuario.USUARIO_ID;
+                const privilegiosUsuario = privilegiosPorUsuario[usuarioId] || {};
+                const infoUsuario = usuariosInfo[usuarioId] || {
+                    nombre: usuario.USERNAME,
+                    nombreCompleto: usuario.NOMBRE_COMPLETO || '',
+                    fechaRegistro: '-'
+                };
+                
+                const row = document.createElement('tr');
+                let rowHTML = `<td><strong>${infoUsuario.nombre}</strong><br><small class="text-muted">${infoUsuario.nombreCompleto}</small></td>`;
+                
+                // Agregar columna para cada módulo
+                modulosOrdenados.forEach(modulo => {
+                    const privilegioModulo = privilegiosUsuario[modulo.nombre_modulo];
+                    if (privilegioModulo) {
+                        const rolBadge = privilegioModulo.privilegio === 'Administrador'
+                            ? '<span class="badge bg-danger">Administrador</span>'
+                            : '<span class="badge bg-info">Usuario</span>';
+                        rowHTML += `<td class="text-center">${rolBadge}</td>`;
+                    } else {
+                        rowHTML += '<td class="text-center text-muted">-</td>';
+                    }
+                });
+                
+                // Fecha registro (usar la más reciente si hay múltiples)
+                rowHTML += `<td>${infoUsuario.fechaRegistro}</td>`;
+                
+                // Acciones - botón para editar privilegios del usuario
+                rowHTML += `<td>
+                    <button class="btn btn-sm btn-primary" onclick="editarPrivilegiosUsuario(${usuarioId})" title="Editar Privilegios">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </td>`;
+                
+                row.innerHTML = rowHTML;
+                tbody.appendChild(row);
+            });
+            
+            if (todosUsuarios.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${2 + modulosOrdenados.length}" class="text-center">No hay usuarios registrados</td></tr>`;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error al cargar usuarios:', error);
+        tbody.innerHTML = `<tr><td colspan="${2 + modulosOrdenados.length}" class="text-center text-danger">Error al cargar los datos</td></tr>`;
     });
 }
 
 // Función para filtrar privilegios
 function filtrarPrivilegios() {
     const busqueda = document.getElementById('searchInputPrivilegios').value.toLowerCase();
-    const privilegiosFiltrados = datosPrivilegios.filter(privilegio => 
-        (privilegio.nombre_usuario || '').toLowerCase().includes(busqueda) ||
-        (privilegio.nombre_modulo || '').toLowerCase().includes(busqueda) ||
-        (privilegio.privilegio || '').toLowerCase().includes(busqueda)
-    );
-    mostrarPrivilegios(privilegiosFiltrados);
+    const filas = document.querySelectorAll('#tbodyPrivilegios tr');
+    
+    filas.forEach(fila => {
+        const textoFila = fila.textContent.toLowerCase();
+        if (textoFila.includes(busqueda)) {
+            fila.style.display = '';
+        } else {
+            fila.style.display = 'none';
+        }
+    });
+}
+
+// Función para editar privilegios de un usuario específico
+function editarPrivilegiosUsuario(usuarioId) {
+    const modal = new bootstrap.Modal(document.getElementById('modalPrivilegio'));
+    document.getElementById('formPrivilegio').reset();
+    document.getElementById('modalPrivilegioTitle').textContent = 'Editar Privilegios de Usuario';
+    
+    // Deshabilitar el campo de selección de usuario
+    const selectUsuario = document.getElementById('usuarioPrivilegio');
+    selectUsuario.disabled = true;
+    selectUsuario.style.backgroundColor = '#e9ecef';
+    selectUsuario.style.cursor = 'not-allowed';
+    
+    // Limpiar tabla de módulos temporalmente
+    document.getElementById('tbodyModulosPrivilegios').innerHTML = `
+        <tr>
+            <td colspan="2" class="text-center text-muted">
+                <i class="fas fa-spinner fa-spin"></i> Cargando...
+            </td>
+        </tr>
+    `;
+    
+    // Primero cargar las opciones del modal (usuarios, módulos, roles)
+    cargarOpcionesModal().then(() => {
+        // Una vez cargadas las opciones, establecer el usuario y cargar sus privilegios
+        selectUsuario.value = usuarioId;
+        // Disparar el evento change para cargar los privilegios automáticamente
+        cargarPrivilegiosUsuario();
+    });
+    
+    modal.show();
 }
 
 // Variables para almacenar módulos y roles
@@ -328,8 +465,14 @@ let rolesSistema = [];
 function abrirModalPrivilegio() {
     const modal = new bootstrap.Modal(document.getElementById('modalPrivilegio'));
     document.getElementById('formPrivilegio').reset();
-    document.getElementById('usuarioPrivilegio').value = '';
+    const selectUsuario = document.getElementById('usuarioPrivilegio');
+    selectUsuario.value = '';
     document.getElementById('modalPrivilegioTitle').textContent = 'Asignar Privilegios por Usuario';
+    
+    // Habilitar el campo de selección de usuario (por si estaba deshabilitado)
+    selectUsuario.disabled = false;
+    selectUsuario.style.backgroundColor = '';
+    selectUsuario.style.cursor = '';
     
     // Limpiar tabla de módulos
     document.getElementById('tbodyModulosPrivilegios').innerHTML = `
@@ -341,60 +484,67 @@ function abrirModalPrivilegio() {
     `;
     
     // Cargar usuarios, módulos y roles
-    cargarOpcionesModal();
+    cargarOpcionesModal().then(() => {
+        // Las opciones ya están cargadas, el usuario puede seleccionar
+    });
     modal.show();
 }
 
 // Función para cargar opciones del modal
 function cargarOpcionesModal() {
-    // Cargar usuarios
-    fetch('modulos_privilegios_actions.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'action=obtener_usuarios'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const select = document.getElementById('usuarioPrivilegio');
-            select.innerHTML = '<option value="">Seleccionar usuario</option>';
-            data.usuarios.forEach(usuario => {
-                select.innerHTML += `<option value="${usuario.USUARIO_ID}">${usuario.USERNAME} - ${usuario.NOMBRE_COMPLETO || ''}</option>`;
-            });
-        }
-    });
-    
-    // Cargar módulos activos
-    fetch('modulos_privilegios_actions.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'action=obtener_modulos'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            modulosActivos = data.modulos.filter(m => m.estado_modulo == 1);
-        }
-    });
-    
-    // Cargar roles
-    fetch('modulos_privilegios_actions.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'action=obtener_roles'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            rolesSistema = data.roles;
-        }
-    });
+    // Retornar una promesa que se resuelve cuando todas las opciones están cargadas
+    return Promise.all([
+        // Cargar usuarios
+        fetch('modulos_privilegios_actions.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'action=obtener_usuarios'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('usuarioPrivilegio');
+                select.innerHTML = '<option value="">Seleccionar usuario</option>';
+                data.usuarios.forEach(usuario => {
+                    select.innerHTML += `<option value="${usuario.USUARIO_ID}">${usuario.USERNAME} - ${usuario.NOMBRE_COMPLETO || ''}</option>`;
+                });
+            }
+        }),
+        
+        // Cargar módulos activos
+        fetch('modulos_privilegios_actions.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'action=obtener_modulos'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                modulosActivos = data.modulos.filter(m => m.estado_modulo == 1).sort((a, b) => 
+                    a.nombre_modulo.localeCompare(b.nombre_modulo)
+                );
+            }
+        }),
+        
+        // Cargar roles
+        fetch('modulos_privilegios_actions.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'action=obtener_roles'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                rolesSistema = data.roles;
+            }
+        })
+    ]);
 }
 
 // Función para cargar privilegios del usuario seleccionado
