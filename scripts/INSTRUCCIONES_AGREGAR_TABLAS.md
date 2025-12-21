@@ -103,3 +103,4 @@ DROP TABLE IF EXISTS roles_sistema;
 **ADVERTENCIA**: Solo ejecuta el rollback si estás seguro de que quieres eliminar todas las tablas y sus datos.
 
 
+

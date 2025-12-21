@@ -12,6 +12,9 @@ verificarAccesoModulo('Ofrendas');
 // Verificar si el usuario es Administrador del módulo
 $esAdministrador = esAdministradorModulo($_SESSION['usuario_id'], 'Ofrendas');
 
+// Verificar si el usuario es admin
+$esAdmin = isset($_SESSION['username']) && strtolower($_SESSION['username']) === 'admin';
+
 header('Content-Type: application/json');
 
 try {
@@ -27,6 +30,7 @@ try {
                         o.monto,
                         o.fecha_ofrenda,
                         o.id_culto,
+                        o.estado_ofrenda,
                         c.TIPO_CULTO as tipo_culto
                     FROM ofrendas o
                     LEFT JOIN cultos c ON o.id_culto = c.ID
@@ -58,6 +62,7 @@ try {
                     o.monto,
                     o.fecha_ofrenda,
                     o.id_culto,
+                    o.estado_ofrenda,
                     o.`20000` as cantidad_20000,
                     o.`10000` as cantidad_10000,
                     o.`5000` as cantidad_5000,
@@ -67,6 +72,7 @@ try {
                     o.`100` as cantidad_100,
                     o.`50` as cantidad_50,
                     o.`10` as cantidad_10,
+                    o.observaciones,
                     c.TIPO_CULTO as tipo_culto
                 FROM ofrendas o
                 LEFT JOIN cultos c ON o.id_culto = c.ID
@@ -97,6 +103,7 @@ try {
             $id = intval($_POST['id'] ?? 0);
             $id_culto = intval($_POST['id_culto'] ?? 0);
             $fecha_ofrenda = $_POST['fecha_ofrenda'] ?? '';
+            $observaciones = substr(trim($_POST['observaciones'] ?? ''), 0, 300); // Limitar a 300 caracteres
             
             // Obtener cantidades de billetes y monedas
             $cantidades = [
@@ -133,7 +140,24 @@ try {
                 throw new Exception('ID de ofrenda no proporcionado');
             }
             
-            // Actualizar la ofrenda con monto total y cantidades por denominación
+            // Verificar si la ofrenda está bloqueada
+            $stmt_check = $pdo->prepare("SELECT estado_ofrenda FROM ofrendas WHERE id = ?");
+            $stmt_check->execute([$id]);
+            $ofrenda_check = $stmt_check->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$ofrenda_check) {
+                throw new Exception('Ofrenda no encontrada');
+            }
+            
+            if (intval($ofrenda_check['estado_ofrenda']) === 0) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Esta ofrenda está bloqueada y no se puede editar'
+                ]);
+                exit();
+            }
+            
+            // Actualizar la ofrenda con monto total, cantidades por denominación y observaciones
             $stmt = $pdo->prepare("
                 UPDATE ofrendas 
                 SET monto = ?, 
@@ -146,7 +170,8 @@ try {
                     `500` = ?,
                     `100` = ?,
                     `50` = ?,
-                    `10` = ?
+                    `10` = ?,
+                    observaciones = ?
                 WHERE id = ?
             ");
             $stmt->execute([
@@ -160,6 +185,7 @@ try {
                 $cantidades['cantidad_100'],
                 $cantidades['cantidad_50'],
                 $cantidades['cantidad_10'],
+                $observaciones,
                 $id
             ]);
             
@@ -167,6 +193,38 @@ try {
                 'success' => true,
                 'message' => 'Ofrenda guardada exitosamente',
                 'monto' => $montoTotal
+            ]);
+            break;
+            
+        case 'cambiar_estado':
+            // Solo administradores o admin pueden cambiar el estado
+            if (!$esAdministrador && !$esAdmin) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'No tienes permisos para cambiar el estado de las ofrendas'
+                ]);
+                exit();
+            }
+            
+            $id = intval($_POST['id'] ?? 0);
+            $estado = intval($_POST['estado'] ?? 1);
+            
+            // Validar que el estado sea 0 o 1
+            if ($estado !== 0 && $estado !== 1) {
+                throw new Exception('Estado inválido');
+            }
+            
+            if (!$id) {
+                throw new Exception('ID de ofrenda no proporcionado');
+            }
+            
+            $stmt = $pdo->prepare("UPDATE ofrendas SET estado_ofrenda = ? WHERE id = ?");
+            $stmt->execute([$estado, $id]);
+            
+            $accion = $estado === 1 ? 'desbloqueada' : 'bloqueada';
+            echo json_encode([
+                'success' => true,
+                'message' => "Ofrenda {$accion} exitosamente"
             ]);
             break;
             

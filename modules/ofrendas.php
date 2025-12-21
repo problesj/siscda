@@ -12,22 +12,20 @@ verificarAccesoModulo('Ofrendas');
 // Verificar si el usuario es Administrador del módulo
 $esAdministrador = esAdministradorModulo($_SESSION['usuario_id'], 'Ofrendas');
 
+// Verificar si el usuario es admin
+$esAdmin = isset($_SESSION['username']) && strtolower($_SESSION['username']) === 'admin';
+
 include '../includes/header.php'; 
 ?>
 
-<style>
-/* Ocultar columna "Culto" en dispositivos móviles */
-@media (max-width: 768px) {
-    #tablaOfrendas thead th:nth-child(3),
-    #tablaOfrendas tbody td:nth-child(3) {
-        display: none;
-    }
-}
-</style>
 
 <script>
 // Variable global para verificar si el usuario es administrador
 const esAdministradorOfrendas = <?php echo $esAdministrador ? 'true' : 'false'; ?>;
+// Variable global para verificar si el usuario es admin
+const esAdmin = <?php echo $esAdmin ? 'true' : 'false'; ?>;
+// Variable global para verificar si puede cambiar estado (admin o administrador)
+const puedeCambiarEstado = <?php echo ($esAdmin || $esAdministrador) ? 'true' : 'false'; ?>;
 </script>
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -70,9 +68,9 @@ const esAdministradorOfrendas = <?php echo $esAdministrador ? 'true' : 'false'; 
                     <tr>
                         <th>ID</th>
                         <th>Fecha</th>
-                        <th>Culto</th>
                         <th>Tipo de Culto</th>
                         <th>Monto</th>
+                        <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -201,6 +199,15 @@ const esAdministradorOfrendas = <?php echo $esAdministrador ? 'true' : 'false'; 
                             </tfoot>
                         </table>
                     </div>
+                    
+                    <hr>
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="observaciones" name="observaciones" rows="3" maxlength="300" placeholder="Ingrese observaciones sobre la ofrenda (máximo 300 caracteres)"></textarea>
+                        <div class="form-text">
+                            <span id="contadorCaracteres">0</span>/300 caracteres
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -208,6 +215,28 @@ const esAdministradorOfrendas = <?php echo $esAdministrador ? 'true' : 'false'; 
                     <button type="button" class="btn btn-primary" onclick="guardarOfrenda()">Guardar</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Ver Detalles de Ofrenda -->
+<div class="modal fade" id="modalVerOfrenda" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles de la Ofrenda</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="contenidoDetalleOfrenda">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
         </div>
     </div>
 </div>
@@ -360,18 +389,33 @@ function mostrarOfrendas() {
             minimumFractionDigits: 0
         }).format(ofrenda.monto);
         
+        const estadoOfrenda = parseInt(ofrenda.estado_ofrenda) === 1;
+        const estadoTexto = estadoOfrenda ? 'Habilitada' : 'Bloqueada';
+        const estadoBadge = estadoOfrenda ? 'success' : 'danger';
+        const puedeEditar = estadoOfrenda && esAdministradorOfrendas;
+        
         row.innerHTML = `
             <td>${ofrenda.id}</td>
             <td>${ofrenda.fecha_ofrenda}</td>
-            <td>${ofrenda.culto_id || '-'}</td>
             <td>${ofrenda.tipo_culto || '-'}</td>
             <td class="text-end"><strong>${montoFormateado}</strong></td>
             <td>
-                ${esAdministradorOfrendas ? `
-                <button class="btn btn-sm btn-primary" onclick="editarOfrenda(${ofrenda.id})" title="Editar">
+                <span class="badge bg-${estadoBadge}">${estadoTexto}</span>
+            </td>
+            <td>
+                <button class="btn btn-sm btn-info me-1" onclick="verDetalleOfrenda(${ofrenda.id})" title="Ver detalles">
+                    <i class="fas fa-eye"></i>
+                </button>
+                ${puedeEditar ? `
+                <button class="btn btn-sm btn-primary me-1" onclick="editarOfrenda(${ofrenda.id})" title="Editar">
                     <i class="fas fa-edit"></i>
                 </button>
-                ` : '<span class="text-muted">Solo lectura</span>'}
+                ` : ''}
+                ${puedeCambiarEstado ? `
+                <button class="btn btn-sm btn-${estadoOfrenda ? 'warning' : 'success'}" onclick="cambiarEstadoOfrenda(${ofrenda.id}, ${estadoOfrenda ? 0 : 1})" title="${estadoOfrenda ? 'Bloquear' : 'Desbloquear'}">
+                    <i class="fas fa-${estadoOfrenda ? 'lock' : 'unlock'}"></i>
+                </button>
+                ` : ''}
             </td>
         `;
         tbody.appendChild(row);
@@ -427,11 +471,221 @@ function irAPagina(pagina) {
     mostrarOfrendas();
 }
 
+// Función para ver detalles de ofrenda
+function verDetalleOfrenda(id) {
+    const modal = new bootstrap.Modal(document.getElementById('modalVerOfrenda'));
+    const contenido = document.getElementById('contenidoDetalleOfrenda');
+    
+    // Mostrar spinner mientras carga
+    contenido.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Cargar detalles del culto
+    fetch('ofrendas_actions.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=obtener_detalle&id=${id}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const detalle = data.ofrenda;
+            
+            // Calcular subtotales
+            const montos = {
+                20000: { cantidad: detalle.cantidad_20000 || 0, subtotal: (detalle.cantidad_20000 || 0) * 20000 },
+                10000: { cantidad: detalle.cantidad_10000 || 0, subtotal: (detalle.cantidad_10000 || 0) * 10000 },
+                5000: { cantidad: detalle.cantidad_5000 || 0, subtotal: (detalle.cantidad_5000 || 0) * 5000 },
+                2000: { cantidad: detalle.cantidad_2000 || 0, subtotal: (detalle.cantidad_2000 || 0) * 2000 },
+                1000: { cantidad: detalle.cantidad_1000 || 0, subtotal: (detalle.cantidad_1000 || 0) * 1000 },
+                500: { cantidad: detalle.cantidad_500 || 0, subtotal: (detalle.cantidad_500 || 0) * 500 },
+                100: { cantidad: detalle.cantidad_100 || 0, subtotal: (detalle.cantidad_100 || 0) * 100 },
+                50: { cantidad: detalle.cantidad_50 || 0, subtotal: (detalle.cantidad_50 || 0) * 50 },
+                10: { cantidad: detalle.cantidad_10 || 0, subtotal: (detalle.cantidad_10 || 0) * 10 }
+            };
+            
+            const montoFormateado = new Intl.NumberFormat('es-CL', {
+                style: 'currency',
+                currency: 'CLP',
+                minimumFractionDigits: 0
+            }).format(detalle.monto);
+            
+            const estadoOfrenda = parseInt(detalle.estado_ofrenda) === 1;
+            const estadoTexto = estadoOfrenda ? 'Habilitada' : 'Bloqueada';
+            const estadoBadge = estadoOfrenda ? 'success' : 'danger';
+            
+            let html = `
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>ID:</strong> ${detalle.id}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Fecha:</strong> ${detalle.fecha_ofrenda}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Tipo de Culto:</strong> ${detalle.tipo_culto || '-'}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Monto Total:</strong> <span class="text-success fw-bold">${montoFormateado}</span>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Estado:</strong> <span class="badge bg-${estadoBadge}">${estadoTexto}</span>
+                    </div>
+                </div>
+                <hr>
+                <h6 class="mb-3">Desglose de Billetes y Monedas</h6>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40%;">Denominación</th>
+                                <th style="width: 30%;" class="text-center">Cantidad</th>
+                                <th style="width: 30%;" class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            // Agregar filas de denominaciones
+            const denominaciones = [
+                { valor: 20000, label: 'Billetes de $20.000' },
+                { valor: 10000, label: 'Billetes de $10.000' },
+                { valor: 5000, label: 'Billetes de $5.000' },
+                { valor: 2000, label: 'Billetes de $2.000' },
+                { valor: 1000, label: 'Billetes de $1.000' },
+                { valor: 500, label: 'Monedas de $500' },
+                { valor: 100, label: 'Monedas de $100' },
+                { valor: 50, label: 'Monedas de $50' },
+                { valor: 10, label: 'Monedas de $10' }
+            ];
+            
+            denominaciones.forEach(den => {
+                const monto = montos[den.valor];
+                const subtotalFormateado = monto.subtotal.toLocaleString('es-CL', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                html += `
+                    <tr>
+                        <td>${den.label}</td>
+                        <td class="text-center">${monto.cantidad}</td>
+                        <td class="text-end"><strong>$${subtotalFormateado}</strong></td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                        <tfoot class="table-success">
+                            <tr>
+                                <th colspan="2" class="text-end">TOTAL:</th>
+                                <th class="text-end">${montoFormateado}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            `;
+            
+            // Agregar observaciones si existen
+            if (detalle.observaciones && detalle.observaciones.trim() !== '') {
+                html += `
+                    <hr>
+                    <div class="mb-3">
+                        <strong>Observaciones:</strong>
+                        <div class="mt-2 p-3 bg-light rounded">
+                            ${detalle.observaciones.replace(/\n/g, '<br>')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            contenido.innerHTML = html;
+        } else {
+            contenido.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> ${data.message || 'Error al cargar los detalles'}
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        contenido.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> Error al cargar los detalles de la ofrenda
+            </div>
+        `;
+    });
+}
+
+// Función para cambiar estado de ofrenda
+function cambiarEstadoOfrenda(id, nuevoEstado) {
+    const accion = nuevoEstado === 1 ? 'desbloquear' : 'bloquear';
+    const textoAccion = nuevoEstado === 1 ? 'desbloquear' : 'bloquear';
+    
+    Swal.fire({
+        title: `¿${textoAccion.charAt(0).toUpperCase() + textoAccion.slice(1)} ofrenda?`,
+        text: nuevoEstado === 1 
+            ? 'La ofrenda quedará habilitada para edición' 
+            : 'La ofrenda quedará bloqueada y no se podrá editar',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: nuevoEstado === 1 ? '#28a745' : '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: `Sí, ${textoAccion}`,
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('ofrendas_actions.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `action=cambiar_estado&id=${id}&estado=${nuevoEstado}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Éxito', data.message || `Ofrenda ${textoAccion}ada exitosamente`, 'success');
+                    cargarOfrendas();
+                } else {
+                    Swal.fire('Error', data.message || 'Error al cambiar el estado', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'Error al cambiar el estado de la ofrenda', 'error');
+            });
+        }
+    });
+}
+
 // Función para editar ofrenda
 function editarOfrenda(id) {
     const ofrenda = datosOfrendas.find(o => o.id === id);
     if (!ofrenda) {
         Swal.fire('Error', 'Ofrenda no encontrada', 'error');
+        return;
+    }
+    
+    // Verificar si la ofrenda está bloqueada
+    if (parseInt(ofrenda.estado_ofrenda) === 0) {
+        Swal.fire({
+            title: 'Ofrenda Bloqueada',
+            text: 'Esta ofrenda está bloqueada y no se puede editar. Solo los administradores pueden desbloquearla.',
+            icon: 'warning',
+            confirmButtonText: 'Entendido'
+        });
         return;
     }
     
@@ -464,6 +718,10 @@ function editarOfrenda(id) {
             document.getElementById('cantidad_100').value = detalle.cantidad_100 || 0;
             document.getElementById('cantidad_50').value = detalle.cantidad_50 || 0;
             document.getElementById('cantidad_10').value = detalle.cantidad_10 || 0;
+            
+            // Cargar observaciones
+            document.getElementById('observaciones').value = detalle.observaciones || '';
+            actualizarContadorCaracteres();
             
             // Calcular y mostrar el total
             calcularTotal();
@@ -517,9 +775,32 @@ function limpiarOfrenda() {
     });
 }
 
+// Función para actualizar contador de caracteres
+function actualizarContadorCaracteres() {
+    const textarea = document.getElementById('observaciones');
+    const contador = document.getElementById('contadorCaracteres');
+    if (textarea && contador) {
+        const longitud = textarea.value.length;
+        contador.textContent = longitud;
+        if (longitud > 300) {
+            contador.classList.add('text-danger');
+        } else {
+            contador.classList.remove('text-danger');
+        }
+    }
+}
+
 // Función para guardar ofrenda
 function guardarOfrenda() {
     const formData = new FormData(document.getElementById('formOfrenda'));
+    const observaciones = document.getElementById('observaciones').value.trim();
+    
+    // Validar longitud de observaciones
+    if (observaciones.length > 300) {
+        Swal.fire('Error', 'Las observaciones no pueden exceder 300 caracteres', 'error');
+        return;
+    }
+    
     const data = {
         action: 'guardar_ofrenda',
         id: formData.get('id'),
@@ -533,7 +814,8 @@ function guardarOfrenda() {
         cantidad_500: parseInt(document.getElementById('cantidad_500').value) || 0,
         cantidad_100: parseInt(document.getElementById('cantidad_100').value) || 0,
         cantidad_50: parseInt(document.getElementById('cantidad_50').value) || 0,
-        cantidad_10: parseInt(document.getElementById('cantidad_10').value) || 0
+        cantidad_10: parseInt(document.getElementById('cantidad_10').value) || 0,
+        observaciones: observaciones
     };
     
     fetch('ofrendas_actions.php', {
@@ -573,9 +855,15 @@ function guardarOfrenda() {
     });
 }
 
-// Cargar ofrendas al iniciar
+// Event listener para el contador de caracteres
 document.addEventListener('DOMContentLoaded', function() {
     cargarOfrendas();
+    
+    // Agregar event listener al campo de observaciones
+    const textareaObservaciones = document.getElementById('observaciones');
+    if (textareaObservaciones) {
+        textareaObservaciones.addEventListener('input', actualizarContadorCaracteres);
+    }
 });
 </script>
 
