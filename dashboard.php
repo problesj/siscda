@@ -5,6 +5,7 @@ include 'includes/header.php';
 $modulosUsuario = obtenerModulosUsuario($_SESSION['usuario_id']);
 $tieneAccesoAsistencias = false;
 $tieneAccesoOfrendas = false;
+$tieneAccesoDiezmos = false;
 
 foreach ($modulosUsuario as $modulo) {
     if ($modulo['nombre_modulo'] === 'Asistencias') {
@@ -12,6 +13,9 @@ foreach ($modulosUsuario as $modulo) {
     }
     if ($modulo['nombre_modulo'] === 'Ofrendas') {
         $tieneAccesoOfrendas = true;
+    }
+    if ($modulo['nombre_modulo'] === 'Diezmos') {
+        $tieneAccesoDiezmos = true;
     }
 }
 ?>
@@ -249,5 +253,242 @@ foreach ($modulosUsuario as $modulo) {
         </div>
     </div>
 </div>
+
+<!-- Gráficos -->
+<div class="row">
+    <?php if ($tieneAccesoAsistencias): ?>
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Asistencias Domingos por Mes</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="graficoAsistenciasDomingos" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+    
+    <?php if ($tieneAccesoOfrendas): ?>
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Ofrendas por Mes</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="graficoOfrendas" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+    
+    <?php if ($tieneAccesoDiezmos): ?>
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Diezmos por Mes</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="graficoDiezmos" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+// Configuración común para los gráficos
+const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+        legend: {
+            display: true,
+            position: 'top'
+        },
+        tooltip: {
+            mode: 'index',
+            intersect: false
+        }
+    },
+    scales: {
+        y: {
+            beginAtZero: true
+        }
+    }
+};
+
+<?php if ($tieneAccesoAsistencias): ?>
+// Gráfico de Asistencias Domingos
+fetch('dashboard_actions.php?action=asistencias_domingos')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error HTTP: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Datos de asistencias:', data);
+        if (data.success && data.data && data.data.length > 0) {
+            const ctx = document.getElementById('graficoAsistenciasDomingos').getContext('2d');
+            const labels = data.data.map(item => item.mes_nombre);
+            const valores = data.data.map(item => parseInt(item.total_asistencias));
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Asistencias',
+                        data: valores,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: chartOptions
+            });
+        } else {
+            console.log('No hay datos de asistencias o data está vacío');
+            document.getElementById('graficoAsistenciasDomingos').parentElement.innerHTML = 
+                '<p class="text-muted text-center">No hay datos disponibles</p>';
+        }
+    })
+    .catch(error => {
+        console.error('Error al cargar datos de asistencias:', error);
+        document.getElementById('graficoAsistenciasDomingos').parentElement.innerHTML = 
+            '<p class="text-danger text-center">Error al cargar los datos: ' + error.message + '</p>';
+    });
+<?php endif; ?>
+
+<?php if ($tieneAccesoOfrendas): ?>
+// Gráfico de Ofrendas
+fetch('dashboard_actions.php?action=ofrendas_mes')
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error HTTP: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Datos de ofrendas:', data);
+        if (data.success && data.data && data.data.length > 0) {
+            const ctx = document.getElementById('graficoOfrendas').getContext('2d');
+            const labels = data.data.map(item => item.mes_nombre);
+            const valores = data.data.map(item => parseFloat(item.total_ofrendas));
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Ofrendas (CLP)',
+                        data: valores,
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    ...chartOptions,
+                    plugins: {
+                        ...chartOptions.plugins,
+                        tooltip: {
+                            ...chartOptions.plugins.tooltip,
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Total: $' + new Intl.NumberFormat('es-CL').format(context.parsed.y);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + new Intl.NumberFormat('es-CL').format(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            console.log('No hay datos de ofrendas o data está vacío');
+            document.getElementById('graficoOfrendas').parentElement.innerHTML = 
+                '<p class="text-muted text-center">No hay datos disponibles</p>';
+        }
+    })
+    .catch(error => {
+        console.error('Error al cargar datos de ofrendas:', error);
+        document.getElementById('graficoOfrendas').parentElement.innerHTML = 
+            '<p class="text-danger text-center">Error al cargar los datos: ' + error.message + '</p>';
+    });
+<?php endif; ?>
+
+<?php if ($tieneAccesoDiezmos): ?>
+// Gráfico de Diezmos
+fetch('dashboard_actions.php?action=diezmos_mes')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.data.length > 0) {
+            const ctx = document.getElementById('graficoDiezmos').getContext('2d');
+            const labels = data.data.map(item => item.mes_nombre);
+            const valores = data.data.map(item => parseFloat(item.total_diezmos));
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Diezmos (CLP)',
+                        data: valores,
+                        backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    ...chartOptions,
+                    plugins: {
+                        ...chartOptions.plugins,
+                        tooltip: {
+                            ...chartOptions.plugins.tooltip,
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Total: $' + new Intl.NumberFormat('es-CL').format(context.parsed.y);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + new Intl.NumberFormat('es-CL').format(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('graficoDiezmos').parentElement.innerHTML = 
+                '<p class="text-muted text-center">No hay datos disponibles</p>';
+        }
+    })
+    .catch(error => {
+        console.error('Error al cargar datos de diezmos:', error);
+        document.getElementById('graficoDiezmos').parentElement.innerHTML = 
+            '<p class="text-danger text-center">Error al cargar los datos</p>';
+    });
+<?php endif; ?>
+</script>
 
 <?php include 'includes/footer.php'; ?>

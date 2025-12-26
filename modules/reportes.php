@@ -15,6 +15,7 @@ include '../includes/header.php';
 $modulosUsuario = obtenerModulosUsuario($_SESSION['usuario_id']);
 $tieneAccesoAsistencias = false;
 $tieneAccesoOfrendas = false;
+$tieneAccesoDiezmos = false;
 
 foreach ($modulosUsuario as $modulo) {
     if ($modulo['nombre_modulo'] === 'Asistencias') {
@@ -23,10 +24,13 @@ foreach ($modulosUsuario as $modulo) {
     if ($modulo['nombre_modulo'] === 'Ofrendas') {
         $tieneAccesoOfrendas = true;
     }
+    if ($modulo['nombre_modulo'] === 'Diezmos') {
+        $tieneAccesoDiezmos = true;
+    }
 }
 
 // Si no tiene acceso a ningún módulo relacionado, redirigir
-if (!$tieneAccesoAsistencias && !$tieneAccesoOfrendas) {
+if (!$tieneAccesoAsistencias && !$tieneAccesoOfrendas && !$tieneAccesoDiezmos) {
     $_SESSION['error'] = 'No tienes acceso a ningún módulo para generar reportes';
     $baseUrl = getBaseUrl();
     header('Location: ' . $baseUrl . '/dashboard.php');
@@ -41,13 +45,13 @@ $grupo_familiar = $_GET['grupo_familiar'] ?? '';
 // Determinar la pestaña activa por defecto
 $tab_activa = $_GET['tab'] ?? '';
 if (empty($tab_activa)) {
-    // Si solo tiene acceso a uno, usar ese; si tiene ambos, usar el primero disponible
-    if ($tieneAccesoAsistencias && !$tieneAccesoOfrendas) {
+    // Determinar la primera pestaña disponible
+    if ($tieneAccesoAsistencias) {
         $tab_activa = 'asistencias';
-    } elseif ($tieneAccesoOfrendas && !$tieneAccesoAsistencias) {
+    } elseif ($tieneAccesoOfrendas) {
         $tab_activa = 'ofrendas';
-    } else {
-        $tab_activa = 'asistencias'; // Por defecto asistencias si tiene ambos
+    } elseif ($tieneAccesoDiezmos) {
+        $tab_activa = 'diezmos';
     }
 }
 
@@ -66,19 +70,24 @@ try {
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">
         <?php 
-        if ($tieneAccesoAsistencias && $tieneAccesoOfrendas) {
+        $totalModulos = ($tieneAccesoAsistencias ? 1 : 0) + ($tieneAccesoOfrendas ? 1 : 0) + ($tieneAccesoDiezmos ? 1 : 0);
+        if ($totalModulos > 1) {
             echo 'Reportes';
         } elseif ($tieneAccesoAsistencias) {
             echo 'Reporte de Asistencias';
         } elseif ($tieneAccesoOfrendas) {
             echo 'Reporte de Ofrendas';
+        } elseif ($tieneAccesoDiezmos) {
+            echo 'Reporte de Diezmos';
         }
         ?>
     </h1>
 </div>
 
 <!-- Pestañas de navegación -->
-<?php if ($tieneAccesoAsistencias && $tieneAccesoOfrendas): ?>
+<?php 
+$totalModulos = ($tieneAccesoAsistencias ? 1 : 0) + ($tieneAccesoOfrendas ? 1 : 0) + ($tieneAccesoDiezmos ? 1 : 0);
+if ($totalModulos > 1): ?>
 <ul class="nav nav-tabs" id="reportesTabs" role="tablist">
     <?php if ($tieneAccesoAsistencias): ?>
     <li class="nav-item" role="presentation">
@@ -95,6 +104,15 @@ try {
                 id="ofrendas-tab" data-bs-toggle="tab" data-bs-target="#ofrendas" 
                 type="button" role="tab" aria-controls="ofrendas" aria-selected="<?php echo $tab_activa === 'ofrendas' ? 'true' : 'false'; ?>">
             <i class="fas fa-hand-holding-usd"></i> Reporte de Ofrendas
+        </button>
+    </li>
+    <?php endif; ?>
+    <?php if ($tieneAccesoDiezmos): ?>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link <?php echo $tab_activa === 'diezmos' ? 'active' : ''; ?>" 
+                id="diezmos-tab" data-bs-toggle="tab" data-bs-target="#diezmos" 
+                type="button" role="tab" aria-controls="diezmos" aria-selected="<?php echo $tab_activa === 'diezmos' ? 'true' : 'false'; ?>">
+            <i class="fa-solid fa-envelope-open-text"></i> Reporte de Diezmos
         </button>
     </li>
     <?php endif; ?>
@@ -445,6 +463,145 @@ try {
                                 }
                             } catch (PDOException $e) {
                                 echo "<tr><td colspan='4' class='text-center text-danger'>Error al cargar ofrendas: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
+                            }
+                            ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Pestaña de Diezmos -->
+    <?php if ($tieneAccesoDiezmos): ?>
+    <div class="tab-pane fade <?php echo ($totalModulos > 1) ? ($tab_activa === 'diezmos' ? 'show active' : '') : 'show active'; ?>" 
+         id="diezmos" role="tabpanel" aria-labelledby="diezmos-tab">
+        
+        <div class="card shadow mb-4 mt-3">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">Reporte de Sobres de Diezmos</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" width="100%" cellspacing="0" id="tablaDiezmos">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Sobre</th>
+                                <?php
+                                // Obtener todos los años únicos con pagos registrados
+                                try {
+                                    $stmt = $pdo->query("SELECT DISTINCT anho FROM pagos_diezmos WHERE anho IS NOT NULL ORDER BY anho DESC");
+                                    $anhos = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                                    
+                                    foreach ($anhos as $anho) {
+                                        echo "<th class='text-end'>Año $anho</th>";
+                                    }
+                                } catch (PDOException $e) {
+                                    $anhos = [];
+                                }
+                                ?>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            try {
+                                // Obtener todos los sobres
+                                $stmt = $pdo->query("SELECT id, sobre, estado_sobre FROM diezmos ORDER BY id");
+                                $sobres = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                                
+                                if (empty($sobres)) {
+                                    $colspan = 3 + count($anhos);
+                                    echo "<tr><td colspan='$colspan' class='text-center'>No hay sobres registrados</td></tr>";
+                                } else {
+                                    foreach ($sobres as $sobre) {
+                                        echo "<tr>";
+                                        echo "<td>" . htmlspecialchars($sobre['id']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($sobre['sobre']) . "</td>";
+                                        
+                                        // Para cada año, obtener el monto total del sobre
+                                        foreach ($anhos as $anho) {
+                                            $stmtPago = $pdo->prepare("
+                                                SELECT 
+                                                    (COALESCE(monto_enero, 0) + 
+                                                     COALESCE(monto_febrero, 0) + 
+                                                     COALESCE(monto_marzo, 0) + 
+                                                     COALESCE(monto_abril, 0) + 
+                                                     COALESCE(monto_mayo, 0) + 
+                                                     COALESCE(monto_junio, 0) + 
+                                                     COALESCE(monto_julio, 0) + 
+                                                     COALESCE(monto_agosto, 0) + 
+                                                     COALESCE(monto_septiembre, 0) + 
+                                                     COALESCE(monto_octubre, 0) + 
+                                                     COALESCE(monto_noviembre, 0) + 
+                                                     COALESCE(monto_diciembre, 0)) as total_anual
+                                                FROM pagos_diezmos
+                                                WHERE id_sobre_diezmo = ? AND anho = ?
+                                            ");
+                                            $stmtPago->execute([$sobre['id'], $anho]);
+                                            $pago = $stmtPago->fetch(PDO::FETCH_ASSOC);
+                                            
+                                            $montoAnual = $pago ? floatval($pago['total_anual']) : 0;
+                                            
+                                            if ($montoAnual > 0) {
+                                                $montoFormateado = number_format($montoAnual, 0, ',', '.');
+                                                echo "<td class='text-end'><strong>$" . $montoFormateado . "</strong></td>";
+                                            } else {
+                                                echo "<td class='text-end text-muted'>-</td>";
+                                            }
+                                        }
+                                        
+                                        // Estado del sobre
+                                        $estadoTexto = intval($sobre['estado_sobre']) === 1 ? 'Activo' : 'Inactivo';
+                                        $estadoBadge = intval($sobre['estado_sobre']) === 1 ? 'success' : 'danger';
+                                        echo "<td><span class='badge bg-$estadoBadge'>$estadoTexto</span></td>";
+                                        
+                                        echo "</tr>";
+                                    }
+                                    
+                                    // Fila de totales por año
+                                    echo "<tr class='table-info'>";
+                                    echo "<td colspan='2' class='text-end'><strong>TOTAL:</strong></td>";
+                                    
+                                    foreach ($anhos as $anho) {
+                                        $stmtTotal = $pdo->prepare("
+                                            SELECT 
+                                                SUM(COALESCE(monto_enero, 0) + 
+                                                    COALESCE(monto_febrero, 0) + 
+                                                    COALESCE(monto_marzo, 0) + 
+                                                    COALESCE(monto_abril, 0) + 
+                                                    COALESCE(monto_mayo, 0) + 
+                                                    COALESCE(monto_junio, 0) + 
+                                                    COALESCE(monto_julio, 0) + 
+                                                    COALESCE(monto_agosto, 0) + 
+                                                    COALESCE(monto_septiembre, 0) + 
+                                                    COALESCE(monto_octubre, 0) + 
+                                                    COALESCE(monto_noviembre, 0) + 
+                                                    COALESCE(monto_diciembre, 0)) as total_anual
+                                            FROM pagos_diezmos
+                                            WHERE anho = ?
+                                        ");
+                                        $stmtTotal->execute([$anho]);
+                                        $total = $stmtTotal->fetch(PDO::FETCH_ASSOC);
+                                        
+                                        $totalAnual = $total ? floatval($total['total_anual']) : 0;
+                                        
+                                        if ($totalAnual > 0) {
+                                            $totalFormateado = number_format($totalAnual, 0, ',', '.');
+                                            echo "<td class='text-end'><strong>$" . $totalFormateado . "</strong></td>";
+                                        } else {
+                                            echo "<td class='text-end'>-</td>";
+                                        }
+                                    }
+                                    
+                                    echo "<td></td>"; // Columna de estado vacía
+                                    echo "</tr>";
+                                }
+                            } catch (PDOException $e) {
+                                $colspan = 3 + count($anhos);
+                                echo "<tr><td colspan='$colspan' class='text-center text-danger'>Error al cargar los datos: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
                             }
                             ?>
                         </tbody>
